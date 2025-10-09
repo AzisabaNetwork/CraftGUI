@@ -77,7 +77,7 @@ public class GuiUtil {
             String displayName = mythicItemUtil.resolveDisplayName(required, player);
             String countMessage = createCountMessage(ownedAmount, required.getAmount());
 
-            finalLore.add(checkMark + ChatColor.WHITE + displayName + " x" + required.getAmount() + countMessage);
+            finalLore.add(checkMark + ChatColor.WHITE + displayName + ChatColor.GRAY + " x" + required.getAmount() + countMessage);
 
             if (loreOn && required.isMythicItem()) {
                 List<String> requiredItemLore = mythicItemUtil.getLoreFromMMID(required.getMmid());
@@ -88,6 +88,27 @@ public class GuiUtil {
                 }
             }
         }
+
+        if (mapUtil.isShowResultItems(player.getUniqueId())) {
+            finalLore.add("");
+            finalLore.add(ChatColor.GRAY + "変換後のアイテム: ");
+            for (CraftingMaterial result : recipeData.getResultItems()) {
+                String checkMark = ChatColor.GREEN + "✓ ";
+                String displayName = mythicItemUtil.resolveDisplayName(result, player);
+                finalLore.add(checkMark + ChatColor.WHITE + displayName + ChatColor.GRAY + " x" + result.getAmount());
+                if (loreOn && result.isMythicItem()) {
+                    List<String> resultItemLore = mythicItemUtil.getLoreFromMMID(result.getMmid());
+                    if (resultItemLore != null && !resultItemLore.isEmpty()) {
+                        for (String loreLine : resultItemLore) {
+                            finalLore.add(ChatColor.DARK_GRAY + "  » " + ChatColor.RESET + loreLine);
+                        }
+                    }
+                }
+            }
+        }
+
+        finalLore.add("");
+        finalLore.add(ChatColor.GRAY + "レシピID: " + ChatColor.BLUE +  recipeData.getId());
 
         meta.setLore(finalLore);
         itemStack.setItemMeta(meta);

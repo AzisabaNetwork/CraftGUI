@@ -195,6 +195,8 @@ public class GuiManager implements Listener {
             mapUtil.toggleSoundState(player.getUniqueId());
         } else if (slot == 48) {
             mapUtil.toggleVanillaToStash(player.getUniqueId());
+        } else if (slot == 50) {
+            mapUtil.toggleShowResultItems(player.getUniqueId());
         } else {
             needsRedraw = false;
         }
@@ -239,6 +241,13 @@ public class GuiManager implements Listener {
 
         boolean vanillaToStash = mapUtil.isVanillaToStash(uuid);
         gui.setItem(48, createNavItem(vanillaToStash ? Material.ENDER_CHEST : Material.CHEST, ChatColor.GREEN + "バニラアイテム付与方法", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (vanillaToStash ? ChatColor.LIGHT_PURPLE + "Stash送り" : ChatColor.AQUA + "直接付与"))));
+
+        boolean showResult = mapUtil.isShowResultItems(uuid);
+        gui.setItem(50, createNavItem(
+                showResult ? Material.HONEY_BOTTLE : Material.GLASS_BOTTLE,
+                ChatColor.GREEN + "変換後アイテム表示",
+                Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (showResult ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))
+        ));
     }
 
     private ItemStack createNavItem(Material material, String name, List<String> lore) {

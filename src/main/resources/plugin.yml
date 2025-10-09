@@ -9,11 +9,10 @@ softdepend:
   - StorageBox
 depend:
   - MythicMobs
-  - NBTAPI
 
 commands:
   craftgui:
-    description: クラフトGUIを開きます。
+    description: クラフトGUIを開きます
     usage: /craftgui
     aliases:
       - rgui

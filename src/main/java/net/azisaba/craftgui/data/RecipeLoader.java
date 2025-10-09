@@ -109,7 +109,7 @@ public class RecipeLoader {
                 return null;
             }
 
-            String loreKey = itemSection.getString("lore", "CommonLore");
+            String loreKey = itemSection.getString("lore", "commonLore");
 
             ItemMeta meta = guiIcon.getItemMeta();
             if (meta != null) {

@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class CraftGuiCommand implements CommandExecutor, TabCompleter {
 
@@ -46,11 +45,6 @@ public class CraftGuiCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("craftgui.command.use")) {
-            plugin.sendMessage(sender, ChatColor.RED + "権限がありません");
-            return true;
-        }
-
         if (args.length == 0) {
             handleOpenGui(sender, "1");
             return true;
@@ -256,7 +250,7 @@ public class CraftGuiCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 3) {
             if (args[0].equalsIgnoreCase("craft") && sender.hasPermission("craftgui.admin")) {
-                return StringUtil.copyPartialMatches(args[2], Arrays.asList("1", "8", "16", "32", "64"), new ArrayList<>());
+                return StringUtil.copyPartialMatches(args[2], Arrays.asList("1", "2", "4", "8", "16", "32", "64"), new ArrayList<>());
             }
             if (args[0].equalsIgnoreCase("config") && args[1].equalsIgnoreCase("reload")) {
                 return Collections.singletonList("--external");

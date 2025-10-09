@@ -94,7 +94,7 @@ public final class CraftGUI extends JavaPlugin {
         this.recipesById.clear();
         loadedItems.values().forEach(page -> page.values().forEach(recipe -> {
             if (recipe.isEnabled()) {
-                recipesById.put(recipe.getId().toUpperCase(), recipe);
+                recipesById.put(recipe.getId().toLowerCase(), recipe);
             }
         }));
 

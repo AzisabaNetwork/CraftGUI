@@ -17,7 +17,7 @@ languages:
 
 # GUIに表示するアイテムの設定
 Items:
-  # カテゴリ名
+  # ページ番号
   page1:
     # スロット番号 (1ページにつき0～44まで設定可能です)
     0:
@@ -66,6 +66,6 @@ Items:
 # Loreの設定
 Lores:
   # Loreの設定名
-  CommonLore:
+  commonLore:
     - '&f左クリックで1回変換します'
     - '&f右クリックで上限まで変換します'
