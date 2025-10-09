@@ -18,11 +18,11 @@ This plugin depends on MythicMobs (v4.12.0), so it is compatible with servers th
 | `/craftgui config reload --external` | Reloads configuration from the external URL defined in `configUrl` |
 
 Aliases:
-- `rgui`
 - `/rgui`
-- `ragui`
+- `//rgui`
 - `/ragui`
-- `/craft`
+- `//ragui`
+- `//craft`
 
 ## Permissions
 
