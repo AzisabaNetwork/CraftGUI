@@ -34,14 +34,14 @@ Aliases:
 ## Configuration Example
 
 ```yaml
-# CraftGUI Extension Configuration
+# CraftGUI Configuration
 configVersion: 1.0
 
 # URL for reloading configuration from an external file
-ConfigURL: "URL"
+configUrl: "URL"
 
 # Language JSON download source
-JsonURL: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.15.2/assets/minecraft/lang/"
+jsonUrl: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.15.2/assets/minecraft/lang/"
 # Supported languages
 languages:
   - "ja_jp"
