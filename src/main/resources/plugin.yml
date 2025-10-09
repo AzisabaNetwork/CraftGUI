@@ -1,0 +1,27 @@
+name: CraftGUI
+version: '${version}'
+main: net.azisaba.craftgui.CraftGUI
+api-version: '1.15'
+author: albardoo02
+softdepend:
+  - ItemStash
+  - MMLuck
+  - StorageBox
+depend:
+  - MythicMobs
+  - NBTAPI
+
+commands:
+  craftgui:
+    description: クラフトGUIを開きます。
+    usage: /craftgui
+    aliases:
+      - rgui
+      - /rgui
+      - ragui
+      - /ragui
+      - /craft
+
+permissions:
+  craftgui.admin:
+    default: op
