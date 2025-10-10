@@ -50,8 +50,9 @@ languages:
 # GUI items configuration
 Items:
   page1:
-    slot0:
+    0:
       enabled: true
+      id: "UniqueId"
       resultItems:
         - mmid: "SpecialStone"
           amount: 1
