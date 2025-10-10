@@ -112,7 +112,7 @@ public class GuiManager implements Listener {
         int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
 
         if (slot >= 45 && slot < 54) {
-            handleNavigation(player, slot, currentPage);
+            handleNavigationAndSettings(player, event);
             return;
         }
 
@@ -166,7 +166,9 @@ public class GuiManager implements Listener {
         inv.setItem(slot, updated);
     }
 
-    private void handleNavigation(Player player, int slot, int currentPage) {
+    private void handleNavigationAndSettings(Player player, InventoryClickEvent event) {
+        int slot = event.getRawSlot();
+        int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
         boolean isCompactView = mapUtil.isCompactViewEnabled(player.getUniqueId());
         int maxPage;
         if (isCompactView) {
@@ -176,40 +178,51 @@ public class GuiManager implements Listener {
             maxPage = loadedItems.keySet().stream().max(Integer::compareTo).orElse(1);
         }
 
-        boolean needsRedraw = true;
+        if ((slot == 45 && currentPage > 1) || (slot == 53 && currentPage < maxPage) || slot == 50 || slot == 52 || slot == 51) {
+            int newPage = currentPage;
+            if (slot == 45) {
+                newPage = currentPage - 1;
+            } else if (slot == 53) {
+                newPage = currentPage + 1;
+            } else if (slot == 50) {
+                mapUtil.toggleCompactViewState(player.getUniqueId());
+                newPage = 1;
+            } else if (slot == 51) {
+                mapUtil.toggleShowResultItems(player.getUniqueId());
+            } else if (slot == 52) {
+                mapUtil.toggleLoreState(player.getUniqueId());
+            }
+            mapUtil.setPlayerPage(player.getUniqueId(), newPage);
 
-        if (slot == 45 && currentPage > 1) {
-            mapUtil.setPlayerPage(player.getUniqueId(), currentPage - 1);
-        } else if (slot == 53 && currentPage < maxPage) {
-            mapUtil.setPlayerPage(player.getUniqueId(), currentPage + 1);
-        } else if (slot == 49) {
-            player.closeInventory();
-            needsRedraw = false;
-        } else if (slot == 51) {
-            mapUtil.toggleCompactViewState(player.getUniqueId());
-            mapUtil.setPlayerPage(player.getUniqueId(), 1);
-        } else if (slot == 52) {
-            mapUtil.toggleLoreState(player.getUniqueId());
-        } else if (slot == 47) {
-            mapUtil.toggleSoundState(player.getUniqueId());
-            needsRedraw = false;
-        } else if (slot == 48) {
-            mapUtil.toggleVanillaToStash(player.getUniqueId());
-            needsRedraw = false;
-        } else if (slot == 50) {
-            mapUtil.toggleShowResultItems(player.getUniqueId());
-        } else {
-            needsRedraw = false;
-        }
-
-        if (needsRedraw) {
-            final int finalPageToOpen = mapUtil.getPlayerPage(player.getUniqueId());
+            final int finalPageToOpen = newPage;
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
                 }
                 openCraftGUI(player, finalPageToOpen);
             });
+            return;
+        }
+
+        boolean buttonUpdated = true;
+        if (slot == 47) {
+            mapUtil.toggleSoundState(player.getUniqueId());
+        } else if (slot == 48) {
+            mapUtil.toggleVanillaToStash(player.getUniqueId());
+        } else {
+            buttonUpdated = false;
+        }
+
+        if (buttonUpdated) {
+            if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
+            }
+            setNavigationButtons(event.getInventory(), currentPage, player);
+            return;
+        }
+
+        if (slot == 49) {
+            player.closeInventory();
         }
     }
 
@@ -224,31 +237,18 @@ public class GuiManager implements Listener {
             maxPage = loadedItems.keySet().stream().max(Integer::compareTo).orElse(1);
         }
 
-        if (currentPage > 1) {
-            gui.setItem(45, createNavItem(Material.ARROW, ChatColor.YELLOW + "前のページへ", Collections.emptyList()));
-        }
-        if (currentPage < maxPage) {
-            gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ", Collections.emptyList()));
-        }
-        gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる", Collections.emptyList()));
-
-        boolean loreOn = mapUtil.isLoreToggledOn(uuid);
-        gui.setItem(52, createNavItem(loreOn ? Material.LIME_DYE : Material.GRAY_DYE,
-                ChatColor.GREEN + "説明文表示",Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (loreOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
-        gui.setItem(51, createNavItem(isCompactView ? Material.WATER_BUCKET : Material.BUCKET, ChatColor.GREEN + "表示モード", Collections.singletonList(ChatColor.GRAY + "現在のモード: " + (isCompactView ? ChatColor.AQUA + "コンパクト" : ChatColor.GRAY + "デフォルト"))));
-
+        if (currentPage > 1) gui.setItem(45, createNavItem(Material.ARROW, ChatColor.YELLOW + "前のページへ", Collections.emptyList()));
+        if (currentPage < maxPage) gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ", Collections.emptyList()));
         boolean soundOn = mapUtil.isSoundToggleOn(uuid);
         gui.setItem(47, createNavItem(soundOn ? Material.JUKEBOX : Material.NOTE_BLOCK, ChatColor.GREEN + "サウンド設定", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (soundOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
-
         boolean vanillaToStash = mapUtil.isVanillaToStash(uuid);
         gui.setItem(48, createNavItem(vanillaToStash ? Material.ENDER_CHEST : Material.CHEST, ChatColor.GREEN + "バニラアイテム付与方法", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (vanillaToStash ? ChatColor.LIGHT_PURPLE + "Stash送り" : ChatColor.AQUA + "直接付与"))));
-
+        gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる", Collections.emptyList()));
+        gui.setItem(50, createNavItem(isCompactView ? Material.WATER_BUCKET : Material.BUCKET, ChatColor.GREEN + "表示モード", Collections.singletonList(ChatColor.GRAY + "現在のモード: " + (isCompactView ? ChatColor.AQUA + "コンパクト" : ChatColor.GRAY + "デフォルト"))));
         boolean showResult = mapUtil.isShowResultItems(uuid);
-        gui.setItem(50, createNavItem(
-                showResult ? Material.HONEY_BOTTLE : Material.GLASS_BOTTLE,
-                ChatColor.GREEN + "変換後アイテム表示",
-                Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (showResult ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))
-        ));
+        gui.setItem(51, createNavItem(showResult ? Material.HONEY_BOTTLE : Material.GLASS_BOTTLE, ChatColor.GREEN + "変換後アイテム表示", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (showResult ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
+        boolean loreOn = mapUtil.isLoreToggledOn(uuid);
+        gui.setItem(52, createNavItem(loreOn ? Material.LIME_DYE : Material.GRAY_DYE, ChatColor.GREEN + "説明文表示",Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (loreOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
     }
 
     private ItemStack createNavItem(Material material, String name, List<String> lore) {

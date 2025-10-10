@@ -15,7 +15,7 @@ import java.nio.file.StandardCopyOption;
 public class ConfigUtil {
 
     private final CraftGUI plugin;
-    private static final String LATEST_CONFIG_VERSION = "1.5";
+    private static final String LATEST_CONFIG_VERSION = "1.0";
 
     public ConfigUtil(CraftGUI plugin) {
         this.plugin = plugin;
