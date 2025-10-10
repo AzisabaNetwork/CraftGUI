@@ -54,7 +54,6 @@ public class GuiManager implements Listener {
                 }
             });
         });
-        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public void openCraftGUI(Player player, int page) {

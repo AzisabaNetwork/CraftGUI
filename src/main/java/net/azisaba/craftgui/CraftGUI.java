@@ -10,9 +10,11 @@ import net.azisaba.craftgui.listener.PlayerQuitListener;
 import net.azisaba.craftgui.logging.FileLogger;
 import net.azisaba.craftgui.manager.GuiManager;
 import net.azisaba.craftgui.util.*;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
@@ -23,7 +25,6 @@ import java.util.Set;
 public final class CraftGUI extends JavaPlugin {
 
     private String prefix;
-
     private MapUtil mapUtil;
     private FileLogger fileLogger;
     private AssetDownloadUtil assetDownloadUtil;
@@ -39,39 +40,34 @@ public final class CraftGUI extends JavaPlugin {
     @Override
     public void onEnable() {
         if (!NBT.preloadApi()) {
-            getLogger().warning("NBT-API wasn't initialized properly, disabling the plugin");
+            getLogger().warning("NBT-APIの初期化に失敗しました。プラグインを無効化します。");
             getPluginLoader().disablePlugin(this);
             return;
         }
-
-        reload();
-
-        CraftGuiCommand commandHandler = new CraftGuiCommand(this, recipeLoader, mapUtil, guiManager, inventoryUtil, mythicItemUtil, fileLogger);
-        this.getCommand("craftgui").setExecutor(commandHandler);
-        this.getCommand("craftgui").setTabCompleter(commandHandler);
-
-        this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this, mapUtil), this);
-        this.getServer().getPluginManager().registerEvents(new PlayerQuitListener(this, mapUtil), this);
-
-        this.getLogger().info("CraftGUI has been enabled.");
+        startup();
+        getLogger().info("CraftGUI has been enabled.");
     }
 
     @Override
     public void onDisable() {
-        this.getLogger().info("CraftGUI has been disabled.");
+        shutdown();
+        getLogger().info("CraftGUI has been disabled.");
     }
 
     public void reload() {
-        this.saveDefaultConfig();
-        this.reloadConfig();
-        FileConfiguration config = this.getConfig();
+        shutdown();
+        startup();
+    }
+
+    private void startup() {
+        saveDefaultConfig();
+        reloadConfig();
+        FileConfiguration config = getConfig();
 
         this.prefix = ChatColor.translateAlternateColorCodes('&', config.getString("prefix", "&8[&aCraftGUI&8] &r"));
-
         this.playerDataManager = new PlayerDataManager(this);
         this.configUtil = new ConfigUtil(this);
         this.mapUtil = new MapUtil();
-
         this.assetDownloadUtil = new AssetDownloadUtil(this);
         List<String> languages = config.getStringList("languages");
         this.assetDownloadUtil.downloadAndLoadLanguages(languages);
@@ -80,29 +76,34 @@ public final class CraftGUI extends JavaPlugin {
         this.inventoryUtil = new InventoryUtil(mythicItemUtil, mapUtil);
         this.fileLogger = new FileLogger(this, mythicItemUtil, inventoryUtil);
 
-        String currentVersion = this.getConfig().getString("configVersion", "0.0");
-        String CONFIG_VERSION = "1.0";
-        if (!currentVersion.equals(CONFIG_VERSION)) {
-            configUtil.updateConfig();
-        } else {
-            this.getLogger().info(ChatColor.GREEN + "config.ymlは最新バージョンです");
-        }
+        configUtil.checkAndUpdate();
 
         this.recipeLoader = new RecipeLoader(this, mythicItemUtil);
         Map<Integer, Map<Integer, RecipeData>> loadedItems = recipeLoader.loadAllItems(config);
-
         this.recipesById.clear();
         loadedItems.values().forEach(page -> page.values().forEach(recipe -> {
             if (recipe.isEnabled()) {
                 recipesById.put(recipe.getId().toLowerCase(), recipe);
             }
         }));
-
         Map<String, List<String>> loadedLores = recipeLoader.loadLores(config);
         GuiUtil guiUtil = new GuiUtil(inventoryUtil, mythicItemUtil, loadedLores, mapUtil);
         this.guiManager = new GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems, mythicItemUtil);
 
+        CraftGuiCommand commandHandler = new CraftGuiCommand(this, recipeLoader, mapUtil, guiManager, inventoryUtil, mythicItemUtil, fileLogger);
+        this.getCommand("craftgui").setExecutor(commandHandler);
+        this.getCommand("craftgui").setTabCompleter(commandHandler);
+
+        this.getServer().getPluginManager().registerEvents(guiManager, this);
+        this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this, mapUtil), this);
+        this.getServer().getPluginManager().registerEvents(new PlayerQuitListener(this, mapUtil), this);
+
         logConfigSummary(loadedItems, recipeLoader.getErrorDetails(), assetDownloadUtil);
+    }
+
+    private void shutdown() {
+        Bukkit.getScheduler().cancelTasks(this);
+        HandlerList.unregisterAll(this);
     }
 
     public void reloadConfigFromUrl(String url) {
