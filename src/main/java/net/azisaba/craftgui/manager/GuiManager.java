@@ -193,8 +193,10 @@ public class GuiManager implements Listener {
             mapUtil.toggleLoreState(player.getUniqueId());
         } else if (slot == 47) {
             mapUtil.toggleSoundState(player.getUniqueId());
+            needsRedraw = false;
         } else if (slot == 48) {
             mapUtil.toggleVanillaToStash(player.getUniqueId());
+            needsRedraw = false;
         } else if (slot == 50) {
             mapUtil.toggleShowResultItems(player.getUniqueId());
         } else {
