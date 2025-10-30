@@ -28,6 +28,7 @@ public class EditGuiManager implements Listener {
     public static final String EDIT_GUI_TITLE_PREFIX = "CraftGUI Edit - Page ";
     private final Map<UUID, Integer> openEditGuis = new HashMap<>();
     private final Map<UUID, List<RecipeInfo>> playerEditList = new HashMap<>();
+    private final Set<UUID> isNavigating = new HashSet<>();
 
     public EditGuiManager(CraftGUI plugin, RecipeConfigManager recipeConfigManager, RegisterGuiManager registerGuiManager) {
         this.plugin = plugin;
@@ -44,6 +45,7 @@ public class EditGuiManager implements Listener {
 
         playerEditList.put(player.getUniqueId(), allRecipes);
         openEditGuiInternal(player, page, allRecipes);
+        playerEditList.put(player.getUniqueId(), allRecipes);
     }
 
     private void openEditGuiInternal(Player player, int page, List<RecipeInfo> allRecipes) {
@@ -106,8 +108,11 @@ public class EditGuiManager implements Listener {
         if (page < maxPage) gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ"));
         gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる"));
 
+        isNavigating.add(player.getUniqueId());
         player.openInventory(gui);
         openEditGuis.put(player.getUniqueId(), page);
+        playerEditList.put(player.getUniqueId(), allRecipes);
+        Bukkit.getScheduler().runTask(plugin, () -> isNavigating.remove(player.getUniqueId()));
     }
 
     @EventHandler
@@ -117,13 +122,18 @@ public class EditGuiManager implements Listener {
         event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
         UUID uuid = player.getUniqueId();
+
+        if (isNavigating.contains(uuid)) return;
         if (!openEditGuis.containsKey(uuid)) return;
 
         int slot = event.getRawSlot();
         int currentPage = openEditGuis.get(uuid);
         List<RecipeInfo> allRecipes = playerEditList.get(uuid);
-        if (allRecipes == null) return;
-
+        if (allRecipes == null) {
+            player.closeInventory();
+            plugin.sendMessage(player, "&cセッションが切れました．もう一度/craftgui editを実行してください．");
+            return;
+        }
         if (slot == 45 && currentPage > 1) {
             openEditGuiInternal(player, currentPage - 1, allRecipes);
             return;
@@ -162,6 +172,7 @@ public class EditGuiManager implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         if (event.getView().getTitle().startsWith(EDIT_GUI_TITLE_PREFIX)) {
             UUID uuid = event.getPlayer().getUniqueId();
+            if (isNavigating.contains(uuid)) return;
             openEditGuis.remove(uuid);
             playerEditList.remove(uuid);
         }

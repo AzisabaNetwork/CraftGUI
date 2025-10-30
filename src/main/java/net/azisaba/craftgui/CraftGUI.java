@@ -226,6 +226,21 @@ public final class CraftGUI extends JavaPlugin {
         logConfigSummary(loadedItems, recipeLoader.getErrorDetails(), assetDownloadUtil);
     }
 
+    public void hotUpdateRecipe(RecipeData recipeData, int page, int slot) {
+        if (recipeData == null) {
+            getLogger().warning("hotUpdateRecipeにnullのレシピが渡されました．");
+            return;
+        }
+
+        recipesById.put(recipeData.getId().toLowerCase(), recipeData);
+
+        if (guiManager != null) {
+            guiManager.hotUpdateRecipe(recipeData, page, slot);
+        }
+
+        getLogger().info(recipeData.getId() + "のレシピをアップデートしました．");
+    }
+
     private void logConfigSummary(Map<Integer, Map<Integer, RecipeData>> loadedItems, List<String> errorDetails, AssetDownloadUtil downloader) {
         int totalItems = 0;
         for (Map<Integer, RecipeData> page : loadedItems.values()) {
@@ -281,5 +296,8 @@ public final class CraftGUI extends JavaPlugin {
     }
     public PlayerDataManager getPlayerDataManager() {
         return playerDataManager;
+    }
+    public RecipeLoader getRecipeLoader() {
+        return recipeLoader;
     }
 }

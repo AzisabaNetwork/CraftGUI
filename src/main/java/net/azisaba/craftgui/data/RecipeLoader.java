@@ -75,7 +75,7 @@ public class RecipeLoader {
         return categoryItems;
     }
 
-    private RecipeData parseRecipeData(ConfigurationSection itemSection, String categoryName, String slotKey) {
+    public RecipeData parseRecipeData(ConfigurationSection itemSection, String categoryName, String slotKey) {
         String id = itemSection.getString("id");
         if (id == null || id.isEmpty()) {
             addError(categoryName, slotKey, "idが設定されていません．");

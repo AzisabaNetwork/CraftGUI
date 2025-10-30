@@ -9,6 +9,7 @@ import net.azisaba.craftgui.util.MythicItemUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -41,10 +42,6 @@ public class RegisterGuiManager implements Listener {
         this.mythicItemUtil = mythicItemUtil;
         this.recipeConfigManager = recipeConfigManager;
         this.inventoryUtil = inventoryUtil;
-    }
-
-    public void createAndOpenGui(Player player, int page, int slot, String recipeId) {
-        createAndOpenGui(player, page, slot, recipeId, null);
     }
 
     public void createAndOpenGui(Player player, int page, int slot, String recipeId, RecipeData existingRecipe) {
@@ -140,6 +137,8 @@ public class RegisterGuiManager implements Listener {
     private void saveRecipe(Player player, Inventory inv, RegisterData data) {
         FileConfiguration config = recipeConfigManager.getConfig();
         String path = "Items.page" + data.page + "." + data.slot;
+        String pageKey = "page" + data.page;
+        String slotKey = String.valueOf(data.slot);
 
         List<Map<String, Object>> requiredItemsConfig = aggregateItems(inv, REQUIRED_SLOTS);
         List<Map<String, Object>> resultItemsConfig = aggregateItems(inv, RESULT_SLOTS);
@@ -152,7 +151,23 @@ public class RegisterGuiManager implements Listener {
 
         recipeConfigManager.saveConfig();
         plugin.sendMessage(player, "&aレシピ'" + data.recipeId + "'を" + path + "に保存しました．");
-        plugin.performSafeReload(player);
+
+        ConfigurationSection itemSection = config.getConfigurationSection(path);
+        if (itemSection == null) {
+            plugin.sendMessage(player, ChatColor.RED + "エラー: 保存したレシピをrecipe.ymlから再取得できませんでした．");
+            plugin.performSafeReload(player);
+            return;
+        }
+
+        RecipeData newRecipe = plugin.getRecipeLoader().parseRecipeData(itemSection, pageKey, slotKey);
+
+        if (newRecipe != null) {
+            plugin.hotUpdateRecipe(newRecipe, data.page, data.slot);
+            plugin.sendMessage(player, "&aレシピのアップデートが完了しました。");
+        } else {
+            plugin.sendMessage(player, ChatColor.RED + "エラー: 保存したレシピの解析に失敗しました．安全なリロードを実行します...");
+            plugin.performSafeReload(player);
+        }
     }
 
     private List<Map<String, Object>> aggregateItems(Inventory inv, int[] slots) {

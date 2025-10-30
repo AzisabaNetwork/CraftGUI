@@ -56,6 +56,22 @@ public class GuiManager implements Listener {
         });
     }
 
+    public void hotUpdateRecipe(RecipeData recipeData, int page, int slot) {
+        Map<Integer, RecipeData> pageItems = loadedItems.computeIfAbsent(page, k -> new LinkedHashMap<>());
+        pageItems.put(slot, recipeData);
+        this.allEnabledRecipes.clear();
+        this.loadedItems.keySet().stream().sorted().forEach(p -> {
+            Map<Integer, RecipeData> items = this.loadedItems.get(p);
+            items.keySet().stream().sorted().forEach(s -> {
+                RecipeData recipe = items.get(s);
+                if (recipe.isEnabled()) {
+                    this.allEnabledRecipes.add(recipe);
+                }
+            });
+        });
+        plugin.getLogger().info("GuiManagerのレシピリストを再構築しました．");
+    }
+
     public void openCraftGUI(Player player, int page) {
         boolean isCompactView = mapUtil.isCompactViewEnabled(player.getUniqueId());
         String title = "CraftGUI - " + (isCompactView ? "All Items (Page " + page + ")" : "Page " + page);
