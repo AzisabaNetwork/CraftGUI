@@ -34,14 +34,14 @@ public class RecipeLoader {
         ConfigurationSection itemsSection = config.getConfigurationSection("Items");
 
         if (itemsSection == null) {
-            plugin.getLogger().warning("config.ymlにItemsセクションがありません");
+            plugin.getLogger().warning("config.ymlにItemsセクションがありません．");
             return itemsByPage;
         }
 
         for (String pageKey : itemsSection.getKeys(false)) {
             try {
                 if (!pageKey.toLowerCase().startsWith("page")) {
-                    addError(pageKey, "N/A", "ページキーは'page'で始まる必要があります");
+                    addError(pageKey, "N/A", "ページキーは'page'で始まる必要があります．");
                     continue;
                 }
                 int page = Integer.parseInt(pageKey.substring(4));
@@ -50,7 +50,7 @@ public class RecipeLoader {
                     itemsByPage.put(page, loadItemsForPage(pageSection, pageKey));
                 }
             } catch (NumberFormatException e) {
-                addError(pageKey, "N/A", "ページ番号が数字ではありません");
+                addError(pageKey, "N/A", "ページ番号が数字ではありません．");
             }
         }
         return itemsByPage;
@@ -69,7 +69,7 @@ public class RecipeLoader {
                     }
                 }
             } catch (NumberFormatException e) {
-                addError(categoryName, slotKey, "スロット番号が数字ではありません");
+                addError(categoryName, slotKey, "スロット番号が数字ではありません．");
             }
         }
         return categoryItems;
@@ -78,14 +78,16 @@ public class RecipeLoader {
     private RecipeData parseRecipeData(ConfigurationSection itemSection, String categoryName, String slotKey) {
         String id = itemSection.getString("id");
         if (id == null || id.isEmpty()) {
-            addError(categoryName, slotKey, "idが設定されていません");
+            addError(categoryName, slotKey, "idが設定されていません．");
             return null;
         }
 
         try {
             boolean enabled = itemSection.getBoolean("enabled", true);
+            boolean craftable = itemSection.getBoolean("craftable", true);
 
             ItemStack guiIcon = null;
+            boolean hasError = false;
 
             List<?> resultItemsList = itemSection.getList("resultItems");
             if (resultItemsList != null && !resultItemsList.isEmpty()) {
@@ -105,8 +107,12 @@ public class RecipeLoader {
             }
 
             if (guiIcon == null) {
-                addError(categoryName, slotKey, "'resultItems'が正しく設定されていないため，GUIアイコンを生成できませんでした");
+                addError(categoryName, slotKey, "'resultItems'が正しく設定されていないため，GUIアイコンを生成できませんでした．");
                 return null;
+            }
+
+            if (guiIcon.getType() == Material.BARRIER) {
+                hasError = true;
             }
 
             String loreKey = itemSection.getString("lore", "commonLore");
@@ -119,13 +125,24 @@ public class RecipeLoader {
                 guiIcon.setItemMeta(meta);
             }
 
+            int errorCountBefore = errorDetails.size();
+
             List<CraftingMaterial> resultItems = parseMaterialsList(itemSection.getList("resultItems"), "resultItems", categoryName, slotKey);
             List<CraftingMaterial> requiredItems = parseMaterialsList(itemSection.getList("requiredItems"), "requiredItems", categoryName, slotKey);
 
-            return new RecipeData(id, enabled, guiIcon, loreKey, resultItems, requiredItems);
+            int errorCountAfter = errorDetails.size();
+            if (errorCountAfter > errorCountBefore) {
+                hasError = true;
+            }
+            if (hasError && !itemSection.isSet("craftable")) {
+                craftable = false;
+                plugin.getLogger().info(String.format("[レシピ: %s.%s.%s] 不明なアイテムが含まれているため，'craftable'を自動的に'false'に設定しました: ", categoryName, slotKey, id));
+            }
+
+            return new RecipeData(id, enabled, craftable, guiIcon, loreKey, resultItems, requiredItems);
 
         } catch (Exception e) {
-            addError(categoryName, slotKey, "不明なエラーが発生しました: " + e.getMessage());
+            addError(categoryName, slotKey, "予期せエラーが発生しました: " + e.getMessage());
             e.printStackTrace();
         }
         return null;
@@ -146,8 +163,8 @@ public class RecipeLoader {
             Material material = Material.valueOf(materialStr.toUpperCase());
             return new ItemStack(material);
         } catch (IllegalArgumentException e) {
-            addError(pageKey, slotKey, "無効なマテリアル名です: " + materialStr);
-            return createErrorItem("無効なMaterial: " + materialStr);
+            addError(pageKey, slotKey, "無効なアイテムIDです: " + materialStr);
+            return createErrorItem("無効なアイテムID: " + materialStr);
         }
     }
 
@@ -177,7 +194,7 @@ public class RecipeLoader {
             try {
                 materials.add(parseSingleMaterial(itemMap));
             } catch (IllegalArgumentException | ClassCastException e) {
-                addError(pageKey, slotKey, String.format("%s[%d] の解析中にエラー: %s", listName, i, e.getMessage()));
+                addError(pageKey, slotKey, String.format("%s[%d] の解析中にエラーが発生しました: %s", listName, i, e.getMessage()));
             }
         }
         return materials;
@@ -203,7 +220,7 @@ public class RecipeLoader {
             try {
                 material = Material.valueOf(materialStr.trim().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("マテリアル名'" + materialStr + "'は不正です");
+                throw new IllegalArgumentException("アイテムID'" + materialStr + "'は不明なIDです．");
             }
         } else {
             isMythic = true;
@@ -211,7 +228,7 @@ public class RecipeLoader {
 
         int amount = (int) map.getOrDefault("amount", 1);
         if (amount <= 0) {
-            throw new IllegalArgumentException("'amount'は1以上の整数である必要があります");
+            throw new IllegalArgumentException("'amount'は1以上の整数で指定してください．");
         }
 
         @SuppressWarnings("unchecked")
@@ -224,7 +241,7 @@ public class RecipeLoader {
         Map<String, List<String>> lores = new HashMap<>();
         ConfigurationSection loresSection = config.getConfigurationSection("Lores");
         if (loresSection == null) {
-            plugin.getLogger().warning("config.ymlにLoresセクションがありません");
+            plugin.getLogger().warning("config.ymlにLoresセクションがありません．");
             return lores;
         }
         for (String loreKey : loresSection.getKeys(false)) {

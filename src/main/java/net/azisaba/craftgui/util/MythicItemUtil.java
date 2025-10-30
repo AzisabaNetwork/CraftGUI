@@ -3,22 +3,28 @@ package net.azisaba.craftgui.util;
 import de.tr7zw.changeme.nbtapi.NBTItem;
 import io.lumine.xikage.mythicmobs.MythicMobs;
 import io.lumine.xikage.mythicmobs.adapters.bukkit.BukkitItemStack;
+import io.lumine.xikage.mythicmobs.items.ItemManager;
 import io.lumine.xikage.mythicmobs.items.MythicItem;
+import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.CraftingMaterial;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 public class MythicItemUtil {
 
+    private final CraftGUI plugin;
     private final ItemNameUtil itemNameUtil;
 
-    public MythicItemUtil(ItemNameUtil itemNameUtil) {
+    public MythicItemUtil(CraftGUI plugin, ItemNameUtil itemNameUtil) {
+        this.plugin = plugin;
         this.itemNameUtil = itemNameUtil;
     }
 
@@ -26,7 +32,20 @@ public class MythicItemUtil {
         if (mmid == null || mmid.isEmpty()) {
             return Optional.empty();
         }
-        return MythicMobs.inst().getItemManager().getItem(mmid);
+        try {
+            MythicMobs mythicMobs = MythicMobs.inst();
+            if (mythicMobs == null || mythicMobs.getItemManager() == null) {
+                plugin.getLogger().log(Level.SEVERE, "MythicMobsが見つかりませんでした．");
+                return Optional.empty();
+            }
+            return mythicMobs.getItemManager().getItem(mmid);
+        } catch (NoClassDefFoundError e) {
+            plugin.getLogger().log(Level.SEVERE, "MythicMobsのAPIバージョンが一致していません．");
+            return Optional.empty();
+        } catch (NullPointerException e) {
+            plugin.getLogger().log(Level.SEVERE, "アイテムの検索中に予期せぬエラーが発生しました．", e);
+            return Optional.empty();
+        }
     }
 
     public String getMythicType(ItemStack stack) {
@@ -82,10 +101,31 @@ public class MythicItemUtil {
         }
     }
 
-    public List<String> resolveLore(CraftingMaterial material) {
-        if (material.isMythicItem()) {
-            return getLoreFromMMID(material.getMmid());
+    public String findMythicIdByItemStack(ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return null;
         }
-        return Collections.emptyList();
+        try {
+            MythicMobs mythicMobs = MythicMobs.inst();
+            if (mythicMobs == null) return null;
+            ItemManager itemManager = mythicMobs.getItemManager();
+            if (itemManager == null) return null;
+
+            Collection<MythicItem> allItems = itemManager.getItems();
+            for (MythicItem mythicItem : allItems) {
+                ItemStack mmStack = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
+                NBTItem nbt = new NBTItem(mmStack, true);
+                if (nbt.hasKey("MYTHIC_TYPE")) {
+                    nbt.removeKey("MYTHIC_TYPE");
+                    nbt.applyNBT(mmStack);
+                }
+                if (item.isSimilar(mmStack)) {
+                    return mythicItem.getInternalName();
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "MythicItemの逆引き検索中にエラーが発生しました: ", e);
+        }
+        return null;
     }
 }

@@ -8,19 +8,23 @@ import net.azisaba.craftgui.data.RecipeLoader;
 import net.azisaba.craftgui.listener.PlayerJoinListener;
 import net.azisaba.craftgui.listener.PlayerQuitListener;
 import net.azisaba.craftgui.logging.FileLogger;
+import net.azisaba.craftgui.manager.EditGuiManager;
 import net.azisaba.craftgui.manager.GuiManager;
+import net.azisaba.craftgui.manager.RecipeConfigManager;
+import net.azisaba.craftgui.manager.RegisterGuiManager;
 import net.azisaba.craftgui.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.logging.Level;
 
 public final class CraftGUI extends JavaPlugin {
 
@@ -32,15 +36,22 @@ public final class CraftGUI extends JavaPlugin {
     private MythicItemUtil mythicItemUtil;
     private InventoryUtil inventoryUtil;
     private ConfigUtil configUtil;
+    private RecipeConfigManager recipeConfigManager;
+    private CraftGuiCommand commandHandler;
     private GuiManager guiManager;
+    private RegisterGuiManager registerGuiManager;
+    private EditGuiManager editGuiManager;
     private RecipeLoader recipeLoader;
     private Map<String, RecipeData> recipesById = new HashMap<>();
     private PlayerDataManager playerDataManager;
 
+    public static final String CRAFT_GUI_TITLE_PREFIX = "CraftGUI - Page ";
+    private BukkitTask autoReloadTask;
+
     @Override
     public void onEnable() {
         if (!NBT.preloadApi()) {
-            getLogger().warning("NBT-APIの初期化に失敗しました。プラグインを無効化します。");
+            getLogger().warning("NBT-APIの初期化に失敗したため，プラグインを無効化します．");
             getPluginLoader().disablePlugin(this);
             return;
         }
@@ -64,53 +75,155 @@ public final class CraftGUI extends JavaPlugin {
         reloadConfig();
         FileConfiguration config = getConfig();
 
-        this.prefix = ChatColor.translateAlternateColorCodes('&', config.getString("prefix", "&8[&aCraftGUI&8] &r"));
+        this.recipeConfigManager = new RecipeConfigManager(this);
+        this.prefix = ChatColor.translateAlternateColorCodes('&', config.getString("prefix", "§7[§aCraftGUI§7] §r"));
         this.playerDataManager = new PlayerDataManager(this);
-        this.configUtil = new ConfigUtil(this);
+        this.configUtil = new ConfigUtil(this, recipeConfigManager);
+
+        configUtil.checkAndUpdate();
+        reloadConfig();
+        config = getConfig();
+
+        recipeConfigManager.reloadConfig();
+        FileConfiguration recipesConfig = recipeConfigManager.getConfig();
+
         this.mapUtil = new MapUtil();
         this.assetDownloadUtil = new AssetDownloadUtil(this);
         List<String> languages = config.getStringList("languages");
         this.assetDownloadUtil.downloadAndLoadLanguages(languages);
         this.itemNameUtil = new ItemNameUtil(assetDownloadUtil);
-        this.mythicItemUtil = new MythicItemUtil(itemNameUtil);
+        this.mythicItemUtil = new MythicItemUtil(this, itemNameUtil);
         this.inventoryUtil = new InventoryUtil(mythicItemUtil, mapUtil);
         this.fileLogger = new FileLogger(this, mythicItemUtil, inventoryUtil);
 
-        configUtil.checkAndUpdate();
-
         this.recipeLoader = new RecipeLoader(this, mythicItemUtil);
-        Map<Integer, Map<Integer, RecipeData>> loadedItems = recipeLoader.loadAllItems(config);
+        Map<Integer, Map<Integer, RecipeData>> loadedItems = recipeLoader.loadAllItems(recipesConfig);
         this.recipesById.clear();
         loadedItems.values().forEach(page -> page.values().forEach(recipe -> {
             if (recipe.isEnabled()) {
                 recipesById.put(recipe.getId().toLowerCase(), recipe);
             }
         }));
-        Map<String, List<String>> loadedLores = recipeLoader.loadLores(config);
+
+        Map<String, List<String>> loadedLores = recipeLoader.loadLores(recipesConfig);
         GuiUtil guiUtil = new GuiUtil(inventoryUtil, mythicItemUtil, loadedLores, mapUtil);
         this.guiManager = new GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems, mythicItemUtil);
+        this.registerGuiManager = new RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil);
+        this.editGuiManager = new EditGuiManager(this, recipeConfigManager, registerGuiManager);
 
-        CraftGuiCommand commandHandler = new CraftGuiCommand(this, recipeLoader, mapUtil, guiManager, inventoryUtil, mythicItemUtil, fileLogger);
+        setupCommands();
+
+        CraftGuiCommand commandHandler = new CraftGuiCommand(this, recipeLoader, mapUtil, guiManager, inventoryUtil, mythicItemUtil, configUtil, fileLogger, registerGuiManager, recipeConfigManager, editGuiManager);
         this.getCommand("craftgui").setExecutor(commandHandler);
         this.getCommand("craftgui").setTabCompleter(commandHandler);
 
         this.getServer().getPluginManager().registerEvents(guiManager, this);
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this, mapUtil), this);
         this.getServer().getPluginManager().registerEvents(new PlayerQuitListener(this, mapUtil), this);
+        this.getServer().getPluginManager().registerEvents(registerGuiManager, this);
+        this.getServer().getPluginManager().registerEvents(editGuiManager, this);
 
         logConfigSummary(loadedItems, recipeLoader.getErrorDetails(), assetDownloadUtil);
     }
 
+    private void setupCommands() {
+        this.commandHandler = new CraftGuiCommand(this, recipeLoader, mapUtil, guiManager, inventoryUtil, mythicItemUtil, configUtil, fileLogger, registerGuiManager, recipeConfigManager, editGuiManager);
+        this.getCommand("craftgui").setExecutor(commandHandler);
+        this.getCommand("craftgui").setTabCompleter(commandHandler);
+    }
+
     private void shutdown() {
+        if (this.autoReloadTask != null && !this.autoReloadTask.isCancelled()) {
+            this.autoReloadTask.cancel();
+            this.autoReloadTask = null;
+        }
         Bukkit.getScheduler().cancelTasks(this);
         HandlerList.unregisterAll(this);
     }
 
-    public void reloadConfigFromUrl(String url) {
-        this.getLogger().info("外部URLからconfig.ymlを上書きしています...");
-        configUtil.updateConfigFromUrl(url);
-        reload();
-        this.getLogger().info(ChatColor.GREEN + "外部URLからconfig.ymlを上書きしました");
+    public void performSafeReload(CommandSender reloader) {
+        String prefix = getPrefix();
+        String startMessage = prefix + ChatColor.YELLOW + "レシピデータをリロードしています...";
+
+        if (reloader != null) {
+            reloader.sendMessage(startMessage);
+        } else {
+            Bukkit.broadcastMessage(startMessage);
+            getLogger().info("CraftGUIの自動リロードを開始します...");
+        }
+        Map<UUID, Integer> playersToRestore = new HashMap<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getOpenInventory().getTitle().startsWith(CRAFT_GUI_TITLE_PREFIX)) {
+                playersToRestore.put(player.getUniqueId(), mapUtil.getPlayerPage(player.getUniqueId()));
+                player.closeInventory();
+            }
+        }
+
+        hotReload();
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Map.Entry<UUID, Integer> entry : playersToRestore.entrySet()) {
+                    Player player = Bukkit.getPlayer(entry.getKey());
+                    if (player != null && player.isOnline()) {
+                        try {
+                            guiManager.openCraftGUI(player, entry.getValue());
+                        } catch (Exception e) {
+                            getLogger().log(Level.SEVERE, "リロード後のGUI復元に失敗しました: " + player.getName(), e);
+                        }
+                    }
+                }
+                if (reloader != null) {
+                    reloader.sendMessage(prefix + ChatColor.GREEN + "レシピデータのリロードが完了しました (Player)");
+                    reloader.sendMessage(prefix + ChatColor.GRAY + playersToRestore.size() + "人のGUIを復元しました．");
+                } else {
+                    Bukkit.broadcastMessage(prefix + ChatColor.GREEN + "レシピデータのリロードが完了しました (Server)");
+                    getLogger().info("CraftGUIの自動リロードが完了しました．");
+                }
+            }
+        }.runTask(this);
+    }
+
+    public void hotReload() {
+        reloadConfig();
+        recipeConfigManager.reloadConfig();
+        FileConfiguration recipesConfig = recipeConfigManager.getConfig();
+
+        configUtil.checkAndUpdate();
+
+        this.recipeLoader = new RecipeLoader(this, mythicItemUtil);
+        Map<Integer, Map<Integer, RecipeData>> loadedItems = recipeLoader.loadAllItems(recipesConfig);
+
+        this.recipesById.clear();
+        loadedItems.values().forEach(page -> page.values().forEach(recipe -> {
+            if (recipe.isEnabled()) {
+                recipesById.put(recipe.getId().toLowerCase(), recipe);
+            }
+        }));
+
+        Map<String, List<String>> loadedLores = recipeLoader.loadLores(recipesConfig);
+        GuiUtil guiUtil = new GuiUtil(inventoryUtil, mythicItemUtil, loadedLores, mapUtil);
+
+        if (this.guiManager != null) {
+            HandlerList.unregisterAll(this.guiManager);
+        }
+        this.guiManager = new GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems, mythicItemUtil);
+        this.getServer().getPluginManager().registerEvents(this.guiManager, this);
+
+        if (this.registerGuiManager != null) {
+            HandlerList.unregisterAll(this.registerGuiManager);
+        }
+        this.registerGuiManager = new RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil);
+        this.getServer().getPluginManager().registerEvents(this.registerGuiManager, this);
+        if (this.editGuiManager != null) {
+            HandlerList.unregisterAll(this.editGuiManager);
+        }
+        this.editGuiManager = new EditGuiManager(this, recipeConfigManager, registerGuiManager);
+        this.getServer().getPluginManager().registerEvents(this.editGuiManager, this);
+
+        setupCommands();
+        logConfigSummary(loadedItems, recipeLoader.getErrorDetails(), assetDownloadUtil);
     }
 
     private void logConfigSummary(Map<Integer, Map<Integer, RecipeData>> loadedItems, List<String> errorDetails, AssetDownloadUtil downloader) {
@@ -155,17 +268,17 @@ public final class CraftGUI extends JavaPlugin {
         if (message == null || message.isEmpty()) {
             return;
         }
-        sender.sendMessage(this.prefix + message);
+        sender.sendMessage(this.prefix + ChatColor.translateAlternateColorCodes('&', message));
     }
-
+    public String getPrefix() {
+        return prefix;
+    }
     public RecipeData getRecipeById(String id) {
         return recipesById.get(id.toLowerCase());
     }
-
     public Set<String> getRecipeIds() {
         return recipesById.keySet();
     }
-
     public PlayerDataManager getPlayerDataManager() {
         return playerDataManager;
     }

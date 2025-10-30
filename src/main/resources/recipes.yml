@@ -1,0 +1,35 @@
+# GUIに表示するアイテムの設定
+Items:
+  # ページ番号
+  page1:
+    # スロット番号 (1ページにつき0～44まで設定可能です)
+    0:
+      # GUI上に表示するかどうか
+      enabled: true
+      # クラフトを有効にするかどうか
+      # true: クラフトできます
+      # false: 表示専用となります
+      craftable: true
+      # 固有ID
+      id: "uniqueId"
+      # 変換する際に付与するアイテム
+      resultItems:
+        # mmidか，materialを指定する
+        # mmid -> MythicMobsアイテム
+        # material -> バニラアイテム
+        - mmid: "kenmazai2"
+          # 付与する個数
+          amount: 1
+      # 変換に必要なアイテム
+      requiredItems:
+        # バニラアイテムであればmaterial, MythicMobsアイテムであればmmidを設定してください
+        - material: STONE
+          amount: 4
+        - mmid: "kenmazai1"
+          amount: 2
+# Loreの設定
+Lores:
+  # Loreの設定名
+  commonLore:
+    - '&f左クリックで1回変換します'
+    - '&f右クリックで上限まで変換します'

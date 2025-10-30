@@ -36,7 +36,7 @@ public class AssetDownloadUtil {
         failedLoads.clear();
 
         if (languages == null || languages.isEmpty()) {
-            plugin.getLogger().warning("ダウンロードする言語がconfig.ymlで指定されていません");
+            plugin.getLogger().warning("ダウンロードする言語がconfig.ymlで指定されていません．");
             return;
         }
 
@@ -51,7 +51,7 @@ public class AssetDownloadUtil {
                 if (cacheFile.exists()) {
                     try (Reader reader = new FileReader(cacheFile)) {
                         langMap = gson.fromJson(reader, mapType);
-                        plugin.getLogger().info(langCode + ".jsonを読み込みました");
+                        plugin.getLogger().info(langCode + ".jsonを読み込みました．");
                     }
                 } else {
                     URL url = new URL(baseUrl + langCode + ".json");
@@ -60,7 +60,7 @@ public class AssetDownloadUtil {
                     }
                     try (Reader reader = new FileReader(cacheFile)) {
                         langMap = gson.fromJson(reader, mapType);
-                        plugin.getLogger().info(langCode + ".json をダウンロードしました");
+                        plugin.getLogger().info(langCode + ".json をダウンロードしました．");
                     }
                 }
 
@@ -69,7 +69,7 @@ public class AssetDownloadUtil {
 
             } catch (Exception e) {
                 failedLoads.add(langCode + ".json " + e.getClass().getSimpleName());
-                plugin.getLogger().log(Level.WARNING, langCode + ".jsonの処理に失敗しました");
+                plugin.getLogger().log(Level.WARNING, langCode + ".jsonの処理に失敗しました: ", e);
             }
         }
     }

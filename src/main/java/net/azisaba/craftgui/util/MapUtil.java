@@ -16,66 +16,51 @@ public class MapUtil {
     public int getPlayerPage(UUID uuid) {
         return playerPages.getOrDefault(uuid, 1);
     }
-
     public void setPlayerPage(UUID uuid, int page) {
         playerPages.put(uuid, page);
     }
-
     public boolean isLoreToggledOn(UUID uuid) {
         return loreToggleState.getOrDefault(uuid, true);
     }
-
     public boolean isCompactViewEnabled(UUID uuid) {
         return compactViewToggleState.getOrDefault(uuid, false);
     }
-
     public boolean isSoundToggleOn(UUID uuid) {
         return soundToggleState.getOrDefault(uuid, true);
     }
-
     public boolean isVanillaToStash(UUID uuid) {
         return vanillaToStashState.getOrDefault(uuid, false);
     }
-
     public boolean isShowResultItems(UUID uuid) {
         return showResultItemsState.getOrDefault(uuid, true);
     }
-
     public void setSoundToggleState(UUID uuid, boolean isOn) {
         soundToggleState.put(uuid, isOn);
     }
-
     public void setVanillaToStash(UUID uuid, boolean toStash) {
         vanillaToStashState.put(uuid, toStash);
     }
-
     public void setShowResultItems(UUID uuid, boolean show) {
         showResultItemsState.put(uuid, show);
     }
-
     public void toggleLoreState(UUID uuid) {
         boolean currentState = isLoreToggledOn(uuid);
         loreToggleState.put(uuid, !currentState);
     }
-
     public void toggleCompactViewState(UUID uuid) {
         boolean currentState = isCompactViewEnabled(uuid);
         compactViewToggleState.put(uuid, !currentState);
     }
-
     public void toggleSoundState(UUID uuid) {
         boolean currentState = isSoundToggleOn(uuid);
         soundToggleState.put(uuid, !currentState);
     }
-
     public void toggleVanillaToStash(UUID uuid) {
         vanillaToStashState.put(uuid, !isVanillaToStash(uuid));
     }
-
     public void toggleShowResultItems(UUID uuid) {
         showResultItemsState.put(uuid, !isShowResultItems(uuid));
     }
-
     public void removePlayer(UUID uuid) {
         playerPages.remove(uuid);
         loreToggleState.remove(uuid);

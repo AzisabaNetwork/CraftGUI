@@ -32,7 +32,7 @@ public class FileLogger {
             if (logDirectory.mkdirs()) {
                 plugin.getLogger().info("ログディレクトリを作成しました: " + logDirectory.getPath());
             } else {
-                plugin.getLogger().severe("ログディレクトリの作成に失敗しました。");
+                plugin.getLogger().severe("ログディレクトリの作成に失敗しました．");
             }
         }
     }

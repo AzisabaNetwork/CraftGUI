@@ -1,12 +1,16 @@
 # CraftGUI Configuration
-configVersion: 1.0
+configVersion: 1.1
 
 # Prefixの設定
 # メッセージの先頭に付与されます
-prefix: "&8[&aCraftGUI&8] &r"
+prefix: "&7[&aCraftGUI&7] &r"
 
 # 外部ファイルを参照したリロード時の参照先URL
 configUrl: "URL"
+
+# CraftGUIのレシピを自動でリロードする間隔（分単位）
+# 0または設定しない場合は無効になります
+auto-reload-interval-minutes: 60
 
 # 言語ファイルのダウンロード先
 jsonUrl: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.15.2/assets/minecraft/lang/"
@@ -14,58 +18,3 @@ jsonUrl: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/
 languages:
   - "ja_jp"
   - "en_us"
-
-# GUIに表示するアイテムの設定
-Items:
-  # ページ番号
-  page1:
-    # スロット番号 (1ページにつき0～44まで設定可能です)
-    0:
-      # GUI上に表示するかどうか
-      enabled: true
-      # 固有ID
-      id: "uniqueId"
-      # 変換する際に付与するアイテム
-      resultItems:
-        # mmidか，materialを指定する
-        # mmid -> MythicMobsアイテム
-        # material -> バニラアイテム
-        - mmid: "AZISAVIOR"
-          # 付与する個数
-          amount: 1
-      # 変換に必要なアイテム
-      requiredItems:
-        # バニラアイテムであればmaterial, MythicMobsアイテムであればmmidを設定してください
-        - material: STONE
-          amount: 4
-        - mmid: "kenmazai1"
-          amount: 2
-  page2:
-    # スロット番号 (1ページにつき0～44まで設定可能です)
-    0:
-      # GUI上に表示するかどうか
-      enabled: true
-      # 固有ID
-      id: "コマンドで変換"
-      # 変換する際に付与するアイテム
-      resultItems:
-        # mmidか，materialを指定する
-        # mmid -> MythicMobsアイテム
-        # material -> バニラアイテム
-        - mmid: "kenmazai1"
-          # 付与する個数
-          amount: 1
-      # 変換に必要なアイテム
-      requiredItems:
-        # バニラアイテムであればmaterial, MythicMobsアイテムであればmmidを設定してください
-        - material: STONE
-          amount: 4
-        - mmid: "kenmazai2"
-          amount: 2
-
-# Loreの設定
-Lores:
-  # Loreの設定名
-  commonLore:
-    - '&f左クリックで1回変換します'
-    - '&f右クリックで上限まで変換します'

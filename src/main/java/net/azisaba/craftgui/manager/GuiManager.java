@@ -45,7 +45,7 @@ public class GuiManager implements Listener {
         this.mythicItemUtil = mythicItemUtil;
 
         this.allEnabledRecipes.clear();
-        this.loadedItems.keySet().stream().sorted().forEach(page -> { // category -> page
+        this.loadedItems.keySet().stream().sorted().forEach(page -> {
             Map<Integer, RecipeData> pageItems = this.loadedItems.get(page);
             pageItems.keySet().stream().sorted().forEach(slot -> {
                 RecipeData recipe = pageItems.get(slot);
@@ -66,7 +66,7 @@ public class GuiManager implements Listener {
             int startIndex = (page - 1) * itemsPerPage;
 
             if (startIndex >= allEnabledRecipes.size() && page > 1) {
-                plugin.sendMessage(player, ChatColor.RED + "そのページは存在しません");
+                plugin.sendMessage(player, "&cそのページは存在しません．");
                 return;
             }
 
@@ -82,7 +82,7 @@ public class GuiManager implements Listener {
         } else {
             Map<Integer, RecipeData> pageItems = loadedItems.get(page);
             if (pageItems == null) {
-                plugin.sendMessage(player, ChatColor.translateAlternateColorCodes('&', "&cページ" + page + "は存在しません。"));
+                plugin.sendMessage(player, "&cページ'" + page + "'は存在しません．");
                 return;
             }
             for (Map.Entry<Integer, RecipeData> entry : pageItems.entrySet()) {
@@ -131,13 +131,23 @@ public class GuiManager implements Listener {
         }
 
         if (clickedRecipe == null || !clickedRecipe.isEnabled()) return;
-        attemptCraft(player, clickedRecipe, event.getClick(), currentPage, event);
+
+        if (!clickedRecipe.isCraftable()) {
+            event.setCancelled(true);
+            plugin.sendMessage(player, "&cこのアイテムは変換できません．");
+            if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            }
+            return;
+        }
+
+        attemptCraft(player, clickedRecipe, event.getClick(), event);
     }
 
-    private void attemptCraft(Player player, RecipeData recipe, ClickType click, int currentPage, InventoryClickEvent event) {
+    private void attemptCraft(Player player, RecipeData recipe, ClickType click, InventoryClickEvent event) {
         long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems());
         if (maxCraftable <= 0) {
-            plugin.sendMessage(player, ChatColor.RED + "変換に必要な素材が不足しています");
+            plugin.sendMessage(player,  "&c変換に必要な素材が不足しています．");
             if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
@@ -153,7 +163,7 @@ public class GuiManager implements Listener {
         }
         inventoryUtil.giveResultItems(player, recipe.getResultItems(), craftAmount);
         fileLogger.logCraft(player, recipe, craftAmount);
-        plugin.sendMessage(player, ChatColor.GREEN + "" + craftAmount + "回変換しました");
+        plugin.sendMessage(player, ChatColor.GREEN + "" + craftAmount + "回変換しました．");
         if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }

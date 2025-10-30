@@ -24,31 +24,24 @@ public class InventoryUtil {
         if (inventoryItem == null || inventoryItem.getType().isAir()) {
             return false;
         }
-
         if (requiredMaterial.isMythicItem()) {
             String inventoryItemMMID = mythicItemUtil.getMythicType(inventoryItem);
             if (inventoryItemMMID != null && requiredMaterial.getMmid().equals(inventoryItemMMID)) {
                 return true;
             }
-
             ItemStack sampleItem = mythicItemUtil.getItemStackFromMMID(requiredMaterial.getMmid());
             if (sampleItem == null) {
                 return false;
             }
-
             if (inventoryItem.getType() != sampleItem.getType()) {
                 return false;
             }
-
             boolean hasInvName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasDisplayName();
             boolean hasSampleName = sampleItem.hasItemMeta() && sampleItem.getItemMeta().hasDisplayName();
-
             if (hasInvName && hasSampleName) {
                 return inventoryItem.getItemMeta().getDisplayName().equals(sampleItem.getItemMeta().getDisplayName());
             }
-
             return !hasInvName && !hasSampleName;
-
         } else {
             boolean hasCustomName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasDisplayName();
             return inventoryItem.getType() == requiredMaterial.getMaterial() && !hasCustomName;
@@ -140,5 +133,22 @@ public class InventoryUtil {
                 }
             }
         }
+    }
+
+    public ItemStack getItemStackFromMaterial(CraftingMaterial material) {
+        if (material == null) {
+            return null;
+        }
+        ItemStack item = null;
+        if (material.isMythicItem() && material.getMmid() != null) {
+            item = mythicItemUtil.getItemStackFromMMID(material.getMmid());
+        } else if (material.getMaterial() != null) {
+            item = new ItemStack(material.getMaterial());
+        }
+        if (item == null) {
+            return null;
+        }
+        item.setAmount(1);
+        return item;
     }
 }
