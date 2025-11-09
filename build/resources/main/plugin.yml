@@ -1,5 +1,5 @@
 name: CraftGUI
-version: '1.0.3'
+version: '1.0.4'
 main: net.azisaba.craftgui.CraftGUI
 api-version: '1.15'
 author: albardoo02

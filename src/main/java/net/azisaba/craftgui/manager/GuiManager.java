@@ -234,7 +234,7 @@ public class GuiManager implements Listener {
         if (slot == 47) {
             mapUtil.toggleSoundState(player.getUniqueId());
         } else if (slot == 48) {
-            mapUtil.toggleVanillaToStash(player.getUniqueId());
+            Bukkit.dispatchCommand(player, "mlstash");
         } else {
             buttonUpdated = false;
         }
@@ -267,8 +267,7 @@ public class GuiManager implements Listener {
         if (currentPage < maxPage) gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ", Collections.emptyList()));
         boolean soundOn = mapUtil.isSoundToggleOn(uuid);
         gui.setItem(47, createNavItem(soundOn ? Material.JUKEBOX : Material.NOTE_BLOCK, ChatColor.GREEN + "サウンド設定", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (soundOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
-        boolean vanillaToStash = mapUtil.isVanillaToStash(uuid);
-        gui.setItem(48, createNavItem(vanillaToStash ? Material.ENDER_CHEST : Material.CHEST, ChatColor.GREEN + "バニラアイテム付与方法", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (vanillaToStash ? ChatColor.LIGHT_PURPLE + "Stash送り" : ChatColor.AQUA + "直接付与"))));
+        gui.setItem(48, createNavItem(Material.CHEST, ChatColor.GREEN + "アイテム付与方法", Collections.singletonList(ChatColor.GRAY + "クリックでStashか直接付与を切り替えます")));
         gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる", Collections.emptyList()));
         gui.setItem(50, createNavItem(isCompactView ? Material.WATER_BUCKET : Material.BUCKET, ChatColor.GREEN + "表示モード", Collections.singletonList(ChatColor.GRAY + "現在のモード: " + (isCompactView ? ChatColor.AQUA + "コンパクト" : ChatColor.GRAY + "デフォルト"))));
         boolean showResult = mapUtil.isShowResultItems(uuid);

@@ -115,8 +115,6 @@ public class InventoryUtil {
     }
 
     public void giveResultItems(Player player, List<CraftingMaterial> resultItems, int craftAmount) {
-        boolean vanillaToStash = mapUtil.isVanillaToStash(player.getUniqueId());
-
         for (CraftingMaterial result : resultItems) {
             int totalAmount = result.getAmount() * craftAmount;
             if (totalAmount <= 0) continue;
@@ -126,11 +124,7 @@ public class InventoryUtil {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
             } else {
                 ItemStack item = new ItemStack(result.getMaterial(), totalAmount);
-                if (vanillaToStash) {
-                    ItemStash.getInstance().addItemToStash(player.getUniqueId(), item);
-                } else {
-                    player.getInventory().addItem(item);
-                }
+                player.getInventory().addItem(item);
             }
         }
     }

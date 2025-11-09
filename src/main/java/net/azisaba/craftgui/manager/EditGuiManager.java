@@ -158,7 +158,7 @@ public class EditGuiManager implements Listener {
 
                 if (recipeData == null) {
                     plugin.sendMessage(player, ChatColor.RED + "エラー: このレシピは現在メモリにロードされていません．");
-                    plugin.sendMessage(player, ChatColor.GRAY + "編集するには，一時的に recipes.ymlでenabled: trueにしてリロードしてください．");
+                    plugin.sendMessage(player, ChatColor.GRAY + "編集するには，一時的にrecipes.ymlでenabled: trueにしてリロードしてください．");
                     return;
                 }
 
