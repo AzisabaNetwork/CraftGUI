@@ -144,7 +144,7 @@ public class CraftGuiCommand implements CommandExecutor, TabCompleter {
     }
 
     private void attemptCraftByCommand(Player player, RecipeData recipe, int craftAmount) {
-        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems());
+        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getRequiredItems());
 
         if (maxCraftable <= 0) {
             plugin.sendMessage(player, "&c変換に必要な素材が不足しています．");

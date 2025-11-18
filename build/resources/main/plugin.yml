@@ -1,12 +1,11 @@
 name: CraftGUI
-version: '1.0.4'
+version: '1.0.5'
 main: net.azisaba.craftgui.CraftGUI
 api-version: '1.15'
 author: albardoo02
 depend:
   - MythicMobs
   - ItemStash
-  - MMLuck
   - StorageBox
 
 commands:

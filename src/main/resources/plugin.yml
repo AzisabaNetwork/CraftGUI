@@ -6,7 +6,6 @@ author: albardoo02
 depend:
   - MythicMobs
   - ItemStash
-  - MMLuck
   - StorageBox
 
 commands:

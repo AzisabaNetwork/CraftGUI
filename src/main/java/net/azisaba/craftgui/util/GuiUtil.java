@@ -57,17 +57,21 @@ public class GuiUtil {
         finalLore.addAll(loadedLores.getOrDefault(loreKey, Collections.emptyList()));
         finalLore.add("");
 
-        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredItems());
+        long limitByMaterial = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredItems(), Collections.emptyList());
+        long limitFinal = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredItems(), recipeData.getResultItems());
 
-        if (maxCraftable > 0) {
+        if (limitFinal > 0) {
             finalLore.add(ChatColor.GREEN + "✓ 変換可能です");
+            finalLore.add(ChatColor.GRAY + "変換可能回数: " + ChatColor.AQUA + limitFinal+ "回");
         } else {
             finalLore.add(ChatColor.RED + "✘ 変換できません");
+            if (limitByMaterial > 0 && limitFinal == 0) {
+                finalLore.add(ChatColor.YELLOW + "✘ インベントリに空きがありません");
+            } else if (limitByMaterial == 0) {
+                finalLore.add(ChatColor.RED + "✘ 変換に必要なアイテムが不足しています");
+            }
         }
 
-        if (maxCraftable > 0) {
-            finalLore.add(ChatColor.GRAY + "変換可能回数: " + ChatColor.AQUA + maxCraftable + "回");
-        }
         finalLore.add("");
         finalLore.add(ChatColor.GRAY + "変換に必要なアイテム: ");
 

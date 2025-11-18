@@ -2,12 +2,11 @@ package net.azisaba.craftgui.util;
 
 import net.azisaba.craftgui.data.CraftingMaterial;
 import net.azisaba.itemstash.ItemStash;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import xyz.acrylicstyle.storageBox.utils.StorageBox;
 
+import java.util.HashMap;
 import java.util.List;
 
 public class InventoryUtil {
@@ -52,16 +51,11 @@ public class InventoryUtil {
         long count = 0;
         for (ItemStack stack : player.getInventory().getContents()) {
             if (stack == null || stack.getType().isAir()) continue;
-            try {
-                StorageBox storageBox = StorageBox.getStorageBox(stack);
-                if (storageBox != null) {
-                    ItemStack componentItem = storageBox.getComponentItemStack();
-                    if (componentItem != null && matches(componentItem, material)) {
-                        count += storageBox.getAmount();
-                    }
-                    continue;
-                }
-            } catch (NoClassDefFoundError ignored) {}
+            ItemStack storedItem = StorageBoxUtil.getStoredItem(stack);
+            if (storedItem != null && matches(storedItem, material)) {
+                count += StorageBoxUtil.getStoredAmount(stack);
+                continue;
+            }
             if (matches(stack, material)) {
                 count += stack.getAmount();
             }
@@ -69,15 +63,54 @@ public class InventoryUtil {
         return count;
     }
 
-    public long calculateMaxCraftableAmount(Player player, List<CraftingMaterial> requiredItems) {
+    public long calculateMaxCraftableAmount(Player player, List<CraftingMaterial> requiredItems, List<CraftingMaterial> resultItems) {
         if (requiredItems.isEmpty()) return 0;
-        long maxCraftable = Long.MAX_VALUE;
+
+        long maxCraftableByMaterial = Long.MAX_VALUE;
         for (CraftingMaterial item : requiredItems) {
             if (item.getAmount() <= 0) continue;
             long ownedAmount = countItems(player, item);
-            maxCraftable = Math.min(maxCraftable, ownedAmount / item.getAmount());
+            maxCraftableByMaterial = Math.min(maxCraftableByMaterial, ownedAmount / item.getAmount());
         }
-        return maxCraftable;
+
+        if (resultItems == null || resultItems.isEmpty()) {
+            return maxCraftableByMaterial;
+        }
+
+        if (mapUtil.isStashEnabled(player.getUniqueId())) {
+            return maxCraftableByMaterial;
+        }
+
+        long maxCraftableByInventory = Long.MAX_VALUE;
+        for (CraftingMaterial result : resultItems) {
+            if (result.getAmount() <= 0) continue;
+
+            ItemStack sampleStack = getItemStackFromMaterial(result);
+            if (sampleStack == null || sampleStack.getType().isAir()) continue;
+
+            boolean hasBox = false;
+            for(ItemStack invItem : player.getInventory().getContents()) {
+                ItemStack stored = StorageBoxUtil.getStoredItem(invItem);
+                if(stored != null && stored.isSimilar(sampleStack)) {
+                    hasBox = true;
+                    break;
+                }
+            }
+            if (hasBox) continue;
+
+            long maxStackSize = sampleStack.getMaxStackSize();
+            long freeSpace = 0;
+
+            for (ItemStack invItem : player.getInventory().getStorageContents()) {
+                if (invItem == null || invItem.getType().isAir()) {
+                    freeSpace += maxStackSize;
+                } else if (invItem.isSimilar(sampleStack)) {
+                    freeSpace += Math.max(0, maxStackSize - invItem.getAmount());
+                }
+            }
+            maxCraftableByInventory = Math.min(maxCraftableByInventory, freeSpace / result.getAmount());
+        }
+        return Math.min(maxCraftableByMaterial, maxCraftableByInventory);
     }
 
     public void removeItems(Player player, CraftingMaterial material, int amount) {
@@ -87,20 +120,17 @@ public class InventoryUtil {
             if (remaining <= 0) break;
             ItemStack currentItem = inv.getItem(i);
             if (currentItem == null || currentItem.getType().isAir()) continue;
-            try {
-                StorageBox storageBox = StorageBox.getStorageBox(currentItem);
-                if (storageBox != null) {
-                    ItemStack component = storageBox.getComponentItemStack();
-                    if (component != null && matches(component, material)) {
-                        long boxAmount = storageBox.getAmount();
-                        long removeAmount = Math.min(boxAmount, remaining);
-                        storageBox.setAmount(boxAmount - removeAmount);
-                        remaining -= (int) removeAmount;
-                        inv.setItem(i, storageBox.getItemStack());
-                    }
-                    continue;
+            ItemStack storedItem = StorageBoxUtil.getStoredItem(currentItem);
+            if (storedItem != null && matches(storedItem, material)) {
+                long boxAmount = StorageBoxUtil.getStoredAmount(currentItem);
+                long removeAmount = Math.min(boxAmount, remaining);
+                ItemStack updatedBox = StorageBoxUtil.setStoredAmount(currentItem, boxAmount - removeAmount);
+                if (updatedBox != null) {
+                    inv.setItem(i, updatedBox);
                 }
-            } catch (NoClassDefFoundError ignored) {}
+                remaining -= (int) removeAmount;
+                continue;
+            }
             if (matches(currentItem, material)) {
                 int stackAmount = currentItem.getAmount();
                 if (stackAmount <= remaining) {
@@ -115,16 +145,33 @@ public class InventoryUtil {
     }
 
     public void giveResultItems(Player player, List<CraftingMaterial> resultItems, int craftAmount) {
+        boolean isStashEnabled = mapUtil.isStashEnabled(player.getUniqueId());
         for (CraftingMaterial result : resultItems) {
             int totalAmount = result.getAmount() * craftAmount;
             if (totalAmount <= 0) continue;
-
+            ItemStack giveItem = null;
             if (result.isMythicItem()) {
-                String command = "mlg " + player.getName() + " " + result.getMmid() + " " + totalAmount + " 1";
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+                giveItem = mythicItemUtil.getItemStackFromMMID(result.getMmid());
             } else {
-                ItemStack item = new ItemStack(result.getMaterial(), totalAmount);
-                player.getInventory().addItem(item);
+                giveItem = new ItemStack(result.getMaterial());
+            }
+
+            if (giveItem == null) continue;
+            giveItem.setAmount(totalAmount);
+
+            if (isStashEnabled) {
+                ItemStash.getInstance().addItemToStash(player.getUniqueId(), giveItem);
+            } else {
+                boolean addedToBox = StorageBoxUtil.tryAddItemToStorageBox(player.getInventory(), giveItem);
+                if (!addedToBox) {
+                    HashMap<Integer, ItemStack> leftOver = player.getInventory().addItem(giveItem);
+                    if (!leftOver.isEmpty()) {
+                        leftOver.values().forEach(item ->
+                                ItemStash.getInstance().addItemToStash(player.getUniqueId(), item)
+                        );
+                        player.sendMessage(org.bukkit.ChatColor.YELLOW + "インベントリに入りきらなかったアイテムをStashに保管しました．");
+                    }
+                }
             }
         }
     }

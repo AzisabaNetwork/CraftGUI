@@ -161,9 +161,9 @@ public class GuiManager implements Listener {
     }
 
     private void attemptCraft(Player player, RecipeData recipe, ClickType click, InventoryClickEvent event) {
-        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems());
+        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getResultItems());
         if (maxCraftable <= 0) {
-            plugin.sendMessage(player,  "&c変換に必要な素材が不足しています．");
+            plugin.sendMessage(player,  "&c変換に必要な素材が不足しているか，インベントリに空きがありません．");
             if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
@@ -204,7 +204,7 @@ public class GuiManager implements Listener {
             maxPage = loadedItems.keySet().stream().max(Integer::compareTo).orElse(1);
         }
 
-        if ((slot == 45 && currentPage > 1) || (slot == 53 && currentPage < maxPage) || slot == 50 || slot == 52 || slot == 51) {
+        if ((slot == 45 && currentPage > 1) || (slot == 53 && currentPage < maxPage) || slot == 50 || slot == 52 || slot == 51 || slot == 48) {
             int newPage = currentPage;
             if (slot == 45) {
                 newPage = currentPage - 1;
@@ -217,7 +217,13 @@ public class GuiManager implements Listener {
                 mapUtil.toggleShowResultItems(player.getUniqueId());
             } else if (slot == 52) {
                 mapUtil.toggleLoreState(player.getUniqueId());
+            } else if (slot == 48) {
+                mapUtil.toggleStashEnabled(player.getUniqueId());
+                boolean isStashEnabled = mapUtil.isStashEnabled(player.getUniqueId());
+                String msg = isStashEnabled ? "アイテムをStashに送るように切り替えました．" : "通常ドロップモードに切り替えました．";
+                plugin.sendMessage(player, ChatColor.GREEN + msg);
             }
+
             mapUtil.setPlayerPage(player.getUniqueId(), newPage);
 
             final int finalPageToOpen = newPage;
@@ -233,12 +239,9 @@ public class GuiManager implements Listener {
         boolean buttonUpdated = true;
         if (slot == 47) {
             mapUtil.toggleSoundState(player.getUniqueId());
-        } else if (slot == 48) {
-            Bukkit.dispatchCommand(player, "mlstash");
         } else {
             buttonUpdated = false;
         }
-
         if (buttonUpdated) {
             if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
@@ -267,7 +270,10 @@ public class GuiManager implements Listener {
         if (currentPage < maxPage) gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ", Collections.emptyList()));
         boolean soundOn = mapUtil.isSoundToggleOn(uuid);
         gui.setItem(47, createNavItem(soundOn ? Material.JUKEBOX : Material.NOTE_BLOCK, ChatColor.GREEN + "サウンド設定", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (soundOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
-        gui.setItem(48, createNavItem(Material.CHEST, ChatColor.GREEN + "アイテム付与方法", Collections.singletonList(ChatColor.GRAY + "クリックでStashか直接付与を切り替えます")));
+        boolean isStashEnabled = mapUtil.isStashEnabled(uuid);
+        Material stashIcon = isStashEnabled ? Material.ENDER_CHEST : Material.CHEST;
+        String stashStatus = isStashEnabled ? ChatColor.AQUA + "Stashへ送る" : ChatColor.GOLD + "インベントリへ送る";
+        gui.setItem(48, createNavItem(stashIcon, ChatColor.GREEN + "アイテム付与方法", Arrays.asList(ChatColor.GRAY + "現在の設定: " + stashStatus, ChatColor.GRAY + "クリックで切り替え")));
         gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる", Collections.emptyList()));
         gui.setItem(50, createNavItem(isCompactView ? Material.WATER_BUCKET : Material.BUCKET, ChatColor.GREEN + "表示モード", Collections.singletonList(ChatColor.GRAY + "現在のモード: " + (isCompactView ? ChatColor.AQUA + "コンパクト" : ChatColor.GRAY + "デフォルト"))));
         boolean showResult = mapUtil.isShowResultItems(uuid);

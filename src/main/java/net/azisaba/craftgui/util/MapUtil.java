@@ -11,6 +11,7 @@ public class MapUtil {
     private final Map<UUID, Boolean> compactViewToggleState = new HashMap<>();
     private final Map<UUID, Boolean> soundToggleState = new HashMap<>();
     private final Map<UUID, Boolean> showResultItemsState = new HashMap<>();
+    private final Map<UUID, Boolean> stashEnabledState = new HashMap<>();
 
     public int getPlayerPage(UUID uuid) {
         return playerPages.getOrDefault(uuid, 1);
@@ -30,11 +31,17 @@ public class MapUtil {
     public boolean isShowResultItems(UUID uuid) {
         return showResultItemsState.getOrDefault(uuid, true);
     }
+    public boolean isStashEnabled(UUID uuid) {
+        return stashEnabledState.getOrDefault(uuid, false);
+    }
     public void setSoundToggleState(UUID uuid, boolean isOn) {
         soundToggleState.put(uuid, isOn);
     }
     public void setShowResultItems(UUID uuid, boolean show) {
         showResultItemsState.put(uuid, show);
+    }
+    public void setStashEnabled(UUID uuid, boolean enabled) {
+        stashEnabledState.put(uuid, enabled);
     }
     public void toggleLoreState(UUID uuid) {
         boolean currentState = isLoreToggledOn(uuid);
@@ -51,11 +58,16 @@ public class MapUtil {
     public void toggleShowResultItems(UUID uuid) {
         showResultItemsState.put(uuid, !isShowResultItems(uuid));
     }
+    public void toggleStashEnabled(UUID uuid) {
+        boolean currentState = isStashEnabled(uuid);
+        stashEnabledState.put(uuid, !currentState);
+    }
     public void removePlayer(UUID uuid) {
         playerPages.remove(uuid);
         loreToggleState.remove(uuid);
         compactViewToggleState.remove(uuid);
         soundToggleState.remove(uuid);
         showResultItemsState.remove(uuid);
+        stashEnabledState.remove(uuid);
     }
 }
