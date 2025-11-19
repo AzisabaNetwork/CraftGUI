@@ -5,7 +5,9 @@ import net.azisaba.itemstash.ItemStash;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -104,8 +106,10 @@ public class InventoryUtil {
             for (ItemStack invItem : player.getInventory().getStorageContents()) {
                 if (invItem == null || invItem.getType().isAir()) {
                     freeSpace += maxStackSize;
-                } else if (invItem.isSimilar(sampleStack)) {
-                    freeSpace += Math.max(0, maxStackSize - invItem.getAmount());
+                } else {
+                    if (isSimilarSafe(invItem, sampleStack)) {
+                        freeSpace += Math.max(0, maxStackSize - invItem.getAmount());
+                    }
                 }
             }
             maxCraftableByInventory = Math.min(maxCraftableByInventory, freeSpace / result.getAmount());
@@ -191,5 +195,33 @@ public class InventoryUtil {
         }
         item.setAmount(1);
         return item;
+    }
+
+    private boolean isSimilarSafe(ItemStack baseItem, ItemStack internalItem) {
+        if (baseItem == null || internalItem == null) return false;
+        try {
+            return baseItem.isSimilar(internalItem);
+        } catch (Exception e) {
+            if (baseItem.getType() != internalItem.getType()) return false;
+            if (baseItem.getDurability() != internalItem.getDurability()) return false;
+            boolean hasBaseItemMeta = baseItem.hasItemMeta();
+            boolean hasInternalItemMeta = internalItem.hasItemMeta();
+            if (hasBaseItemMeta != hasInternalItemMeta) return false;
+            if (!hasBaseItemMeta) return true;
+            ItemMeta baseItemMeta = baseItem.getItemMeta();
+            ItemMeta internalItemMeta = internalItem.getItemMeta();
+            String name1 = baseItemMeta.hasDisplayName() ? baseItemMeta.getDisplayName() : "";
+            String name2 = internalItemMeta.hasDisplayName() ? internalItemMeta.getDisplayName() : "";
+            if (!name1.equals(name2)) return false;
+            List<String> l1 = baseItemMeta.hasLore() ? baseItemMeta.getLore() : Collections.emptyList();
+            List<String> l2 = internalItemMeta.hasLore() ? internalItemMeta.getLore() : Collections.emptyList();
+            if (!l1.equals(l2)) return false;
+            if (baseItemMeta.hasCustomModelData() != internalItemMeta.hasCustomModelData()) return false;
+            if (baseItemMeta.hasCustomModelData() && baseItemMeta.getCustomModelData() != internalItemMeta.getCustomModelData()) return false;
+            if (!baseItemMeta.getEnchants().equals(internalItemMeta.getEnchants())) return false;
+            if (baseItemMeta.isUnbreakable() != internalItemMeta.isUnbreakable()) return false;
+            if (!baseItemMeta.getItemFlags().equals(internalItemMeta.getItemFlags())) return false;
+            return true;
+        }
     }
 }
