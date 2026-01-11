@@ -183,10 +183,12 @@ public class GuiManager implements Listener {
         if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }
-
+        int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            openCraftGUI(player, currentPage);
+        });
         Inventory inv = player.getOpenInventory().getTopInventory();
         int slot = event.getRawSlot();
-
         ItemStack updated = guiUtil.createBaseRecipeItem(recipe);
         guiUtil.updateLoreForPlayer(updated, recipe, player);
         inv.setItem(slot, updated);

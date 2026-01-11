@@ -21,6 +21,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
 public class RegisterGuiManager implements Listener {
@@ -30,6 +31,7 @@ public class RegisterGuiManager implements Listener {
     private final RecipeConfigManager recipeConfigManager;
     private final InventoryUtil inventoryUtil;
     private final Map<UUID, RegisterData> openRegisterGuis = new HashMap<>();
+    private final Set<UUID> processing = Collections.synchronizedSet(new HashSet<>());
 
     private static final int[] REQUIRED_SLOTS = IntStream.range(0, 27).toArray();
     private static final int[] SEPARATOR_SLOTS = IntStream.range(27, 36).toArray();
@@ -106,20 +108,104 @@ public class RegisterGuiManager implements Listener {
         Player player = (Player) event.getWhoClicked();
         UUID uuid = player.getUniqueId();
         if (!openRegisterGuis.containsKey(uuid)) return;
-
         RegisterData data = openRegisterGuis.get(uuid);
         if (!event.getView().getTitle().equals(data.guiTitle)) return;
-
         event.setCancelled(false);
         int rawSlot = event.getRawSlot();
-
         if (rawSlot == SAVE_BUTTON_SLOT) {
             event.setCancelled(true);
-            saveRecipe(player, event.getInventory(), data);
+            if (processing.contains(uuid)) return;
+            handleAsyncSave(player, event.getInventory(), data);
             player.closeInventory();
         } else if (Arrays.stream(SEPARATOR_SLOTS).anyMatch(s -> s == rawSlot)) {
             event.setCancelled(true);
         }
+    }
+
+    private void handleAsyncSave(Player player, Inventory inv, RegisterData data) {
+        UUID uuid = player.getUniqueId();
+        processing.add(uuid);
+        player.sendMessage(ChatColor.YELLOW + "レシピを解析しています... (非同期)");
+        List<ItemStack> reqSnapshots = getSnapshots(inv, REQUIRED_SLOTS);
+        List<ItemStack> resSnapshots = getSnapshots(inv, RESULT_SLOTS);
+        CompletableFuture.supplyAsync(() -> {
+            List<Map<String, Object>> reqConfig = analyzeItems(reqSnapshots);
+            List<Map<String, Object>> resConfig = analyzeItems(resSnapshots);
+            return new AbstractMap.SimpleEntry<>(reqConfig, resConfig);
+        }).thenAccept(pair -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    saveToConfig(player, data, pair.getKey(), pair.getValue());
+                } finally {
+                    processing.remove(uuid);
+                    openRegisterGuis.remove(uuid);
+                }
+            });
+        }).exceptionally(ex -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                player.sendMessage(ChatColor.RED + "保存中にエラーが発生しました。");
+                ex.printStackTrace();
+                processing.remove(uuid);
+            });
+            return null;
+        });
+    }
+
+    private List<Map<String, Object>> analyzeItems(List<ItemStack> snapshots) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (ItemStack item : snapshots) {
+            String mmid = mythicItemUtil.findMMIDAsync(item).join();
+            String key;
+            if (mmid != null) {
+                key = "mmid:" + mmid;
+            } else if (isPureVanilla(item)) {
+                key = "material:" + item.getType().name();
+            } else {
+                key = "material:" + item.getType().name();
+            }
+            counts.put(key, counts.getOrDefault(key, 0) + item.getAmount());
+        }
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            Map<String, Object> itemMap = new HashMap<>();
+            String key = entry.getKey();
+            if (key.startsWith("mmid:")) {
+                itemMap.put("mmid", key.substring(5));
+            } else {
+                itemMap.put("material", key.substring(9));
+            }
+            itemMap.put("amount", entry.getValue());
+            resultList.add(itemMap);
+        }
+        return resultList;
+    }
+
+    private boolean isPureVanilla(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return true;
+        ItemMeta meta = item.getItemMeta();
+        return !meta.hasDisplayName() && !meta.hasLore() && !meta.hasCustomModelData();
+    }
+
+    private List<ItemStack> getSnapshots(Inventory inv, int[] slots) {
+        List<ItemStack> list = new ArrayList<>();
+        for (int s : slots) {
+            ItemStack item = inv.getItem(s);
+            if (item != null && !item.getType().isAir()) list.add(item.clone());
+        }
+        return list;
+    }
+
+    private void saveToConfig(Player player, RegisterData data, List<Map<String, Object>> req, List<Map<String, Object>> res) {
+        FileConfiguration config = recipeConfigManager.getConfig();
+        String path = "Items.page" + data.page + "." + data.slot;
+        config.set(path + ".id", data.recipeId);
+        config.set(path + ".enabled", true);
+        config.set(path + ".craftable", true);
+        config.set(path + ".requiredItems", req);
+        config.set(path + ".resultItems", res);
+        recipeConfigManager.saveConfig();
+        plugin.sendMessage(player, "&aレシピを保存し，Hot Updateを適用しました．");
+        plugin.performSafeReload(null);
     }
 
     @EventHandler
@@ -132,119 +218,6 @@ public class RegisterGuiManager implements Listener {
                 openRegisterGuis.remove(uuid);
             }
         }
-    }
-
-    private void saveRecipe(Player player, Inventory inv, RegisterData data) {
-        FileConfiguration config = recipeConfigManager.getConfig();
-        String path = "Items.page" + data.page + "." + data.slot;
-        String pageKey = "page" + data.page;
-        String slotKey = String.valueOf(data.slot);
-
-        List<Map<String, Object>> requiredItemsConfig = aggregateItems(inv, REQUIRED_SLOTS);
-        List<Map<String, Object>> resultItemsConfig = aggregateItems(inv, RESULT_SLOTS);
-
-        config.set(path + ".id", data.recipeId);
-        config.set(path + ".enabled", true);
-        config.set(path + ".craftable", true);
-        config.set(path + ".requiredItems", requiredItemsConfig);
-        config.set(path + ".resultItems", resultItemsConfig);
-
-        recipeConfigManager.saveConfig();
-        plugin.sendMessage(player, "&aレシピ'" + data.recipeId + "'を" + path + "に保存しました．");
-
-        ConfigurationSection itemSection = config.getConfigurationSection(path);
-        if (itemSection == null) {
-            plugin.sendMessage(player, ChatColor.RED + "エラー: 保存したレシピをrecipe.ymlから再取得できませんでした．");
-            plugin.performSafeReload(player);
-            return;
-        }
-
-        RecipeData newRecipe = plugin.getRecipeLoader().parseRecipeData(itemSection, pageKey, slotKey);
-
-        if (newRecipe != null) {
-            plugin.hotUpdateRecipe(newRecipe, data.page, data.slot);
-            plugin.sendMessage(player, "&aレシピのアップデートが完了しました。");
-        } else {
-            plugin.sendMessage(player, ChatColor.RED + "エラー: 保存したレシピの解析に失敗しました．安全なリロードを実行します...");
-            plugin.performSafeReload(player);
-        }
-    }
-
-    private List<Map<String, Object>> aggregateItems(Inventory inv, int[] slots) {
-        Map<String, Integer> counts = new HashMap<>();
-        Map<String, ItemStack> itemTemplates = new HashMap<>();
-
-        for (int slot : slots) {
-            ItemStack item = inv.getItem(slot);
-            if (item == null || item.getType().isAir()) continue;
-
-            String key = getItemKey(item);
-            counts.put(key, counts.getOrDefault(key, 0) + item.getAmount());
-            itemTemplates.putIfAbsent(key, item);
-        }
-
-        List<Map<String, Object>> configList = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            String key = entry.getKey();
-            int amount = entry.getValue();
-            ItemStack template = itemTemplates.get(key);
-
-            Map<String, Object> itemMap = convertItemStackToConfigMap(template);
-            itemMap.put("amount", amount);
-            configList.add(itemMap);
-        }
-        return configList;
-    }
-
-    private Map<String, Object> convertItemStackToConfigMap(ItemStack item) {
-        Map<String, Object> map = new HashMap<>();
-
-        String mmid = mythicItemUtil.getMythicType(item);
-        if (mmid != null) {
-            map.put("mmid", mmid);
-            return map;
-        }
-
-        if (isPureVanilla(item)) {
-            map.put("material", item.getType().name());
-            return map;
-        }
-
-        mmid = mythicItemUtil.findMythicIdByItemStack(item);
-        if (mmid != null) {
-            map.put("mmid", mmid);
-        } else {
-            map.put("material", item.getType().name());
-        }
-        return map;
-    }
-
-    private String getItemKey(ItemStack item) {
-        String mmid = mythicItemUtil.getMythicType(item);
-        if (mmid != null) {
-            return "mmid:" + mmid;
-        }
-        if (isPureVanilla(item)) {
-            return "material:" + item.getType().name();
-        }
-
-        mmid = mythicItemUtil.findMythicIdByItemStack(item);
-        if (mmid != null) {
-            return "mmid:" + mmid;
-        } else {
-            return "material:" + item.getType().name();
-        }
-    }
-
-    private boolean isPureVanilla(ItemStack item) {
-        if (!item.hasItemMeta()) {
-            return true;
-        }
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null) {
-            return true;
-        }
-        return !meta.hasDisplayName() && !meta.hasLore() && !meta.hasCustomModelData();
     }
 
     private ItemStack createGuiItem(Material material, String name, List<String> lore) {

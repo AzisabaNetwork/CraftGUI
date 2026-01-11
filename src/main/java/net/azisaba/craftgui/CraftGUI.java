@@ -1,6 +1,5 @@
 package net.azisaba.craftgui;
 
-import de.tr7zw.changeme.nbtapi.NBT;
 import net.azisaba.craftgui.command.CraftGuiCommand;
 import net.azisaba.craftgui.data.PlayerDataManager;
 import net.azisaba.craftgui.data.RecipeData;
@@ -50,11 +49,6 @@ public final class CraftGUI extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!NBT.preloadApi()) {
-            getLogger().warning("NBT-APIの初期化に失敗したため，プラグインを無効化します．");
-            getPluginLoader().disablePlugin(this);
-            return;
-        }
         startup();
         getLogger().info("CraftGUI has been enabled.");
     }

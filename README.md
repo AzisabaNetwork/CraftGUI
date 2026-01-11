@@ -10,12 +10,16 @@ This plugin depends on MythicMobs (v4.12.0), so it is compatible with servers th
 
 ## Commands
 
-| Command | Description |
-|----------|-------------|
-| `/craftgui` | Opens the CraftGUI |
-| `/craftgui craft <id> <amount>` | Craft by specifying the item ID in the command |
-| `/craftgui config reload` | Reloads the config.yml file |
-| `/craftgui config reload --external` | Reloads configuration from the external URL defined in `configUrl` |
+| Command                                                    | Description                                                             |
+|------------------------------------------------------------|-------------------------------------------------------------------------|
+| `/craftgui`                                                | Opens the CraftGUI                                                      |
+| `/craftgui page=<page>`                                    | Opens the specified page.                                               |
+| `/craftgui craft <id> <amount>`                            | Craft by specifying the item ID in the command                          |
+| `/craftgui register id=<recipeId> page=<page> slot=<slot>` | Register an item. <br>All fields are optional except for the recipe ID. |
+| `/craftgui edit`                                           | Edit recipes.                                                           |
+| `/craftgui errors`                                         | Show error logs.                                                        |
+| `/craftgui config reload`                                  | Reloads the config.yml file                                             |
+| `/craftgui config reload --external`                       | Reloads configuration from the external URL defined in `configUrl`      |
 
 Aliases:
 - `/rgui`
@@ -74,50 +78,3 @@ Lores:
 ## License
 
 This project is licensed under the [GNU General Public License](LICENSE).
-
----
-
-### Included Libraries
-
-This project bundles the following third-party library:
-
-- **[Item-NBT-API](https://github.com/tr7zw/Item-NBT-API)**  
-  - Copyright (c) tr7zw  
-  - Licensed under the [MIT License](https://opensource.org/licenses/MIT)
-
-The MIT license text for the bundled library is reproduced below as required.
-
----
-
-### Item-NBT-API License (MIT)
-
-```
-MIT License
-
-Copyright (c) tr7zw
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-```
-
----
-
-## Notes
-
-- This plugin includes shaded code from **Item-NBT-API**, which is licensed under the MIT license.
-- License text and attribution are included as required by the MIT license.

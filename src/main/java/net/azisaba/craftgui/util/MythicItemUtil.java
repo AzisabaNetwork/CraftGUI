@@ -1,20 +1,21 @@
 package net.azisaba.craftgui.util;
 
-import de.tr7zw.changeme.nbtapi.NBTItem;
 import io.lumine.xikage.mythicmobs.MythicMobs;
 import io.lumine.xikage.mythicmobs.adapters.bukkit.BukkitItemStack;
 import io.lumine.xikage.mythicmobs.items.ItemManager;
 import io.lumine.xikage.mythicmobs.items.MythicItem;
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.CraftingMaterial;
+import net.minecraft.server.v1_15_R1.NBTTagCompound;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -23,39 +24,34 @@ public class MythicItemUtil {
     private final CraftGUI plugin;
     private final ItemNameUtil itemNameUtil;
 
+    private final Map<Material, Map<String, ItemStack>> itemCache = new HashMap<>();
+    private long lastCacheUpdate = 0;
+
     public MythicItemUtil(CraftGUI plugin, ItemNameUtil itemNameUtil) {
         this.plugin = plugin;
         this.itemNameUtil = itemNameUtil;
     }
 
-    private Optional<MythicItem> getMythicItem(String mmid) {
-        if (mmid == null || mmid.isEmpty()) {
-            return Optional.empty();
-        }
+    public String getMMIDFromNBT(ItemStack item) {
         try {
-            MythicMobs mythicMobs = MythicMobs.inst();
-            if (mythicMobs == null || mythicMobs.getItemManager() == null) {
-                plugin.getLogger().log(Level.SEVERE, "MythicMobsが見つかりませんでした．");
-                return Optional.empty();
-            }
-            return mythicMobs.getItemManager().getItem(mmid);
-        } catch (NoClassDefFoundError e) {
-            plugin.getLogger().log(Level.SEVERE, "MythicMobsのAPIバージョンが一致していません．");
-            return Optional.empty();
-        } catch (NullPointerException e) {
-            plugin.getLogger().log(Level.SEVERE, "アイテムの検索中に予期せぬエラーが発生しました．", e);
-            return Optional.empty();
+            net.minecraft.server.v1_15_R1.ItemStack nmsItem = CraftItemStack.asNMSCopy(item);
+            if (!nmsItem.hasTag()) return null;
+            NBTTagCompound tag = nmsItem.getTag();
+            if (tag == null || !tag.hasKey("MYTHIC_TYPE")) return null;
+            return tag.getString("MYTHIC_TYPE");
+        } catch (Exception e) {
+            return null;
         }
     }
 
-    public String getMythicType(ItemStack stack) {
-        return Optional.ofNullable(stack)
-                .filter(item -> !item.getType().isAir())
-                .map(NBTItem::new)
-                .flatMap(nbti -> nbti.hasKey("MYTHIC_TYPE")
-                        ? Optional.ofNullable(nbti.getString("MYTHIC_TYPE"))
-                        : Optional.empty())
-                .orElse(null);
+    private Optional<MythicItem> getMythicItem(String mmid) {
+        if (mmid == null || mmid.isEmpty()) return Optional.empty();
+        try {
+            if (MythicMobs.inst() == null) return Optional.empty();
+            return MythicMobs.inst().getItemManager().getItem(mmid);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     public ItemStack getItemStackFromMMID(String mmid) {
@@ -68,10 +64,7 @@ public class MythicItemUtil {
         return getMythicItem(mmid)
                 .map(item -> {
                     String displayName = item.getDisplayName();
-                    if (displayName != null && !displayName.trim().isEmpty()) {
-                        return ChatColor.translateAlternateColorCodes('&', displayName);
-                    }
-                    return mmid;
+                    return (displayName != null && !displayName.isEmpty()) ? ChatColor.translateAlternateColorCodes('&', displayName) : null;
                 })
                 .orElse(mmid != null ? mmid : "不明なMMID");
     }
@@ -101,31 +94,44 @@ public class MythicItemUtil {
         }
     }
 
-    public String findMythicIdByItemStack(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return null;
-        }
-        try {
-            MythicMobs mythicMobs = MythicMobs.inst();
-            if (mythicMobs == null) return null;
-            ItemManager itemManager = mythicMobs.getItemManager();
-            if (itemManager == null) return null;
-
-            Collection<MythicItem> allItems = itemManager.getItems();
-            for (MythicItem mythicItem : allItems) {
-                ItemStack mmStack = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
-                NBTItem nbt = new NBTItem(mmStack, true);
-                if (nbt.hasKey("MYTHIC_TYPE")) {
-                    nbt.removeKey("MYTHIC_TYPE");
-                    nbt.applyNBT(mmStack);
+    public CompletableFuture<String> findMMIDAsync(ItemStack item) {
+        if (item == null || item.getType().isAir()) return CompletableFuture.completedFuture(null);
+        String mmid = getMMIDFromNBT(item);
+        if (mmid != null) return CompletableFuture.completedFuture(mmid);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                MythicMobs mm = MythicMobs.inst();
+                if (mm == null) return null;
+                ItemManager manager = mm.getItemManager();
+                if (manager == null) return null;
+                Collection<MythicItem> allItems = manager.getItems();
+                for (MythicItem mythicItem : allItems) {
+                    ItemStack mmItem = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
+                    if (isSimilar(item, mmItem)) {
+                        return mythicItem.getInternalName();
+                    }
                 }
-                if (item.isSimilar(mmStack)) {
-                    return mythicItem.getInternalName();
-                }
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "Async MythicItem search failed", e);
             }
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "MythicItemの逆引き検索中にエラーが発生しました: ", e);
-        }
-        return null;
+            return null;
+        });
+    }
+
+    private boolean isSimilar(ItemStack stack1, ItemStack stack2) {
+        if (stack1 == null || stack2 == null) return false;
+        if (stack1.getType() != stack2.getType()) return false;
+        boolean hasMeta1 = stack1.hasItemMeta();
+        boolean hasMeta2 = stack2.hasItemMeta();
+        if (!hasMeta1 && !hasMeta2) return true;
+        ItemMeta meta1 = stack1.getItemMeta();
+        ItemMeta meta2 = stack2.getItemMeta();
+        String name1 = (hasMeta1 && meta1.hasDisplayName()) ? meta1.getDisplayName() : "";
+        String name2 = (hasMeta2 && meta2.hasDisplayName()) ? meta2.getDisplayName() : "";
+        if (!name1.equals(name2)) return false;
+        List<String> lore1 = (hasMeta1 && meta1.hasLore()) ? meta1.getLore() : Collections.emptyList();
+        List<String> lore2 = (hasMeta2 && meta2.hasLore()) ? meta2.getLore() : Collections.emptyList();
+        if (!lore1.equals(lore2)) return false;
+        return true;
     }
 }

@@ -26,23 +26,12 @@ public class InventoryUtil {
             return false;
         }
         if (requiredMaterial.isMythicItem()) {
-            String inventoryItemMMID = mythicItemUtil.getMythicType(inventoryItem);
+            String inventoryItemMMID = mythicItemUtil.getMMIDFromNBT(inventoryItem);
             if (inventoryItemMMID != null && requiredMaterial.getMmid().equals(inventoryItemMMID)) {
                 return true;
             }
             ItemStack sampleItem = mythicItemUtil.getItemStackFromMMID(requiredMaterial.getMmid());
-            if (sampleItem == null) {
-                return false;
-            }
-            if (inventoryItem.getType() != sampleItem.getType()) {
-                return false;
-            }
-            boolean hasInvName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasDisplayName();
-            boolean hasSampleName = sampleItem.hasItemMeta() && sampleItem.getItemMeta().hasDisplayName();
-            if (hasInvName && hasSampleName) {
-                return inventoryItem.getItemMeta().getDisplayName().equals(sampleItem.getItemMeta().getDisplayName());
-            }
-            return !hasInvName && !hasSampleName;
+            return isSimilar(inventoryItem, sampleItem);
         } else {
             boolean hasCustomName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasDisplayName();
             return inventoryItem.getType() == requiredMaterial.getMaterial() && !hasCustomName;
@@ -75,39 +64,31 @@ public class InventoryUtil {
             maxCraftableByMaterial = Math.min(maxCraftableByMaterial, ownedAmount / item.getAmount());
         }
 
-        if (resultItems == null || resultItems.isEmpty()) {
-            return maxCraftableByMaterial;
-        }
-
-        if (mapUtil.isStashEnabled(player.getUniqueId())) {
+        if (resultItems == null || resultItems.isEmpty() || mapUtil.isStashEnabled(player.getUniqueId())) {
             return maxCraftableByMaterial;
         }
 
         long maxCraftableByInventory = Long.MAX_VALUE;
         for (CraftingMaterial result : resultItems) {
             if (result.getAmount() <= 0) continue;
-
             ItemStack sampleStack = getItemStackFromMaterial(result);
             if (sampleStack == null || sampleStack.getType().isAir()) continue;
-
             boolean hasBox = false;
             for(ItemStack invItem : player.getInventory().getContents()) {
                 ItemStack stored = StorageBoxUtil.getStoredItem(invItem);
-                if(stored != null && stored.isSimilar(sampleStack)) {
+                if (stored != null && isSimilar(stored, sampleStack)) {
                     hasBox = true;
                     break;
                 }
             }
             if (hasBox) continue;
-
             long maxStackSize = sampleStack.getMaxStackSize();
             long freeSpace = 0;
-
             for (ItemStack invItem : player.getInventory().getStorageContents()) {
                 if (invItem == null || invItem.getType().isAir()) {
                     freeSpace += maxStackSize;
                 } else {
-                    if (isSimilarSafe(invItem, sampleStack)) {
+                    if (isSimilar(invItem, sampleStack)) {
                         freeSpace += Math.max(0, maxStackSize - invItem.getAmount());
                     }
                 }
@@ -153,7 +134,7 @@ public class InventoryUtil {
         for (CraftingMaterial result : resultItems) {
             int totalAmount = result.getAmount() * craftAmount;
             if (totalAmount <= 0) continue;
-            ItemStack giveItem = null;
+            ItemStack giveItem;
             if (result.isMythicItem()) {
                 giveItem = mythicItemUtil.getItemStackFromMMID(result.getMmid());
             } else {
@@ -181,47 +162,31 @@ public class InventoryUtil {
     }
 
     public ItemStack getItemStackFromMaterial(CraftingMaterial material) {
-        if (material == null) {
-            return null;
-        }
-        ItemStack item = null;
-        if (material.isMythicItem() && material.getMmid() != null) {
+        if (material == null) return null;
+        ItemStack item;
+        if (material.isMythicItem()) {
             item = mythicItemUtil.getItemStackFromMMID(material.getMmid());
-        } else if (material.getMaterial() != null) {
+        } else {
             item = new ItemStack(material.getMaterial());
         }
-        if (item == null) {
-            return null;
-        }
-        item.setAmount(1);
         return item;
     }
 
-    private boolean isSimilarSafe(ItemStack baseItem, ItemStack internalItem) {
+    public boolean isSimilar(ItemStack baseItem, ItemStack internalItem) {
         if (baseItem == null || internalItem == null) return false;
-        try {
-            return baseItem.isSimilar(internalItem);
-        } catch (Exception e) {
-            if (baseItem.getType() != internalItem.getType()) return false;
-            if (baseItem.getDurability() != internalItem.getDurability()) return false;
-            boolean hasBaseItemMeta = baseItem.hasItemMeta();
-            boolean hasInternalItemMeta = internalItem.hasItemMeta();
-            if (hasBaseItemMeta != hasInternalItemMeta) return false;
-            if (!hasBaseItemMeta) return true;
-            ItemMeta baseItemMeta = baseItem.getItemMeta();
-            ItemMeta internalItemMeta = internalItem.getItemMeta();
-            String name1 = baseItemMeta.hasDisplayName() ? baseItemMeta.getDisplayName() : "";
-            String name2 = internalItemMeta.hasDisplayName() ? internalItemMeta.getDisplayName() : "";
-            if (!name1.equals(name2)) return false;
-            List<String> l1 = baseItemMeta.hasLore() ? baseItemMeta.getLore() : Collections.emptyList();
-            List<String> l2 = internalItemMeta.hasLore() ? internalItemMeta.getLore() : Collections.emptyList();
-            if (!l1.equals(l2)) return false;
-            if (baseItemMeta.hasCustomModelData() != internalItemMeta.hasCustomModelData()) return false;
-            if (baseItemMeta.hasCustomModelData() && baseItemMeta.getCustomModelData() != internalItemMeta.getCustomModelData()) return false;
-            if (!baseItemMeta.getEnchants().equals(internalItemMeta.getEnchants())) return false;
-            if (baseItemMeta.isUnbreakable() != internalItemMeta.isUnbreakable()) return false;
-            if (!baseItemMeta.getItemFlags().equals(internalItemMeta.getItemFlags())) return false;
-            return true;
-        }
+        if (baseItem.getType() != internalItem.getType()) return false;
+        boolean hasBaseItemMeta = baseItem.hasItemMeta();
+        boolean hasInternalItemMeta = internalItem.hasItemMeta();
+        if (hasBaseItemMeta != hasInternalItemMeta) return false;
+        if (!hasBaseItemMeta) return true;
+        ItemMeta baseItemMeta = baseItem.getItemMeta();
+        ItemMeta internalItemMeta = internalItem.getItemMeta();
+        String name1 = baseItemMeta.hasDisplayName() ? baseItemMeta.getDisplayName() : "";
+        String name2 = internalItemMeta.hasDisplayName() ? internalItemMeta.getDisplayName() : "";
+        if (!name1.equals(name2)) return false;
+        List<String> lore1 = baseItemMeta.hasLore() ? baseItemMeta.getLore() : Collections.emptyList();
+        List<String> lore2 = internalItemMeta.hasLore() ? internalItemMeta.getLore() : Collections.emptyList();
+        if (!lore1.equals(lore2)) return false;
+        return true;
     }
 }

@@ -4,9 +4,10 @@ plugins {
 }
 
 group = 'net.azisaba'
-version = '1.0.6'
+version = '1.0.7'
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven {
         name = "papermc-repo"
@@ -24,10 +25,6 @@ repositories {
         name = "Lumine Releases"
         url = "https://mvn.lumine.io/repository/maven-public/"
     }
-    maven {
-        name = "CodeMC"
-        url = uri("https://repo.codemc.io/repository/maven-public/")
-    }
 }
 
 dependencies {
@@ -35,7 +32,7 @@ dependencies {
     compileOnly "net.azisaba:ItemStash:2.2.3"
     compileOnly "xyz.acrylicstyle:StorageBox:1.5.6+1.15.2"
     compileOnly "io.lumine.xikage:MythicMobs:4.12.0"
-    implementation("de.tr7zw:item-nbt-api:2.15.2")
+    compileOnly "org.spigotmc:spigot:1.15.2-R0.1-SNAPSHOT"
 }
 
 def targetJavaVersion = 8
