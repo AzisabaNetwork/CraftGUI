@@ -61,11 +61,3 @@ processResources {
         expand props
     }
 }
-
-shadowJar {
-    relocate("de.tr7zw.changeme.nbtapi", "net.azisaba.craftgui.libs.nbtapi")
-}
-
-build {
-    dependsOn(shadowJar)
-}
