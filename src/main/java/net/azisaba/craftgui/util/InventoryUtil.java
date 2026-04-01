@@ -5,9 +5,14 @@ import net.azisaba.itemstash.ItemStash;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class InventoryUtil {
 
@@ -177,7 +182,13 @@ public class InventoryUtil {
 
     public boolean isSimilar(ItemStack baseItem, ItemStack internalItem) {
         if (baseItem == null || internalItem == null) return false;
-        return baseItem.isSimilar(internalItem);
+        try {
+            if (baseItem.isSimilar(internalItem)) {
+                return true;
+            }
+        } catch (NullPointerException ignored) {
+        }
+        return compareSerializedItems(baseItem, internalItem) || compareByItemMeta(baseItem, internalItem);
     }
 
     private ItemStack deserializeItemStack(java.util.Map<String, Object> itemStackData) {
@@ -186,5 +197,59 @@ public class InventoryUtil {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private boolean compareSerializedItems(ItemStack first, ItemStack second) {
+        if (first.getType() != second.getType()) {
+            return false;
+        }
+        return normalizeSerializedValue(first.serialize()).equals(normalizeSerializedValue(second.serialize()));
+    }
+
+    private boolean compareByItemMeta(ItemStack first, ItemStack second) {
+        if (first.getType() != second.getType()) {
+            return false;
+        }
+
+        ItemMeta firstMeta = first.hasItemMeta() ? first.getItemMeta() : null;
+        ItemMeta secondMeta = second.hasItemMeta() ? second.getItemMeta() : null;
+
+        if (firstMeta == null || secondMeta == null) {
+            return firstMeta == null && secondMeta == null;
+        }
+
+        return Objects.equals(firstMeta.hasDisplayName() ? firstMeta.getDisplayName() : null, secondMeta.hasDisplayName() ? secondMeta.getDisplayName() : null)
+                && Objects.equals(firstMeta.hasLore() ? firstMeta.getLore() : null, secondMeta.hasLore() ? secondMeta.getLore() : null)
+                && Objects.equals(firstMeta.hasCustomModelData() ? firstMeta.getCustomModelData() : null, secondMeta.hasCustomModelData() ? secondMeta.getCustomModelData() : null)
+                && Objects.equals(firstMeta.getEnchants(), secondMeta.getEnchants())
+                && firstMeta.isUnbreakable() == secondMeta.isUnbreakable()
+                && Objects.equals(firstMeta.getItemFlags(), secondMeta.getItemFlags());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object normalizeSerializedValue(Object value) {
+        if (value instanceof Map) {
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            ((Map<?, ?>) value).forEach((key, nestedValue) -> {
+                if (key == null || nestedValue == null) {
+                    return;
+                }
+                if ("amount".equals(String.valueOf(key))) {
+                    return;
+                }
+                normalized.put(String.valueOf(key), normalizeSerializedValue(nestedValue));
+            });
+            return normalized;
+        }
+        if (value instanceof List) {
+            List<Object> normalized = new ArrayList<>();
+            for (Object entry : (List<Object>) value) {
+                if (entry != null) {
+                    normalized.add(normalizeSerializedValue(entry));
+                }
+            }
+            return normalized;
+        }
+        return value;
     }
 }
