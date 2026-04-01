@@ -303,4 +303,7 @@ public final class CraftGUI extends JavaPlugin {
     public RecipeLoader getRecipeLoader() {
         return recipeLoader;
     }
+    public EditGuiManager getEditGuiManager() {
+        return editGuiManager;
+    }
 }

@@ -207,6 +207,7 @@ public class RecipeLoader {
         boolean isMythic = false;
 
         String displayName = (String) map.get("displayName");
+        Map<String, Object> itemStackData = getItemStackData(map);
 
         if (mmid != null && !mmid.trim().isEmpty()) {
             isMythic = true;
@@ -222,6 +223,16 @@ public class RecipeLoader {
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("アイテムID'" + materialStr + "'は不明なIDです．");
             }
+        } else if (itemStackData != null && !itemStackData.isEmpty()) {
+            ItemStack itemStack = deserializeItemStack(itemStackData);
+            if (itemStack == null || itemStack.getType().isAir()) {
+                throw new IllegalArgumentException("'itemStack' からアイテムを復元できませんでした");
+            }
+            material = itemStack.getType();
+            ItemMeta itemMeta = itemStack.getItemMeta();
+            if (displayName == null && itemMeta != null && itemMeta.hasDisplayName()) {
+                displayName = itemMeta.getDisplayName();
+            }
         } else {
             isMythic = true;
         }
@@ -234,7 +245,24 @@ public class RecipeLoader {
         @SuppressWarnings("unchecked")
         List<String> lore = (List<String>) map.get("lore");
 
-        return new CraftingMaterial(isMythic, mmid, material, amount, displayName, lore);
+        return new CraftingMaterial(isMythic, mmid, material, amount, displayName, lore, itemStackData);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getItemStackData(Map<String, Object> map) {
+        Object rawItemStack = map.get("itemStack");
+        if (!(rawItemStack instanceof Map)) {
+            return null;
+        }
+        return new LinkedHashMap<>((Map<String, Object>) rawItemStack);
+    }
+
+    private ItemStack deserializeItemStack(Map<String, Object> itemStackData) {
+        try {
+            return ItemStack.deserialize(new LinkedHashMap<>(itemStackData));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public Map<String, List<String>> loadLores(FileConfiguration config) {

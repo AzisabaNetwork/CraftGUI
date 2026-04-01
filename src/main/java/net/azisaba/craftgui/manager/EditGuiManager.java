@@ -187,7 +187,7 @@ public class EditGuiManager implements Listener {
                 }
 
                 player.closeInventory();
-                registerGuiManager.createAndOpenGui(player, info.page, info.slot, info.id, recipeData);
+                registerGuiManager.createAndOpenGuiFromEdit(player, info.page, info.slot, info.id, recipeData, currentPage);
             }
         }
     }

@@ -58,6 +58,14 @@ public class RegisterGuiManager implements Listener {
     }
 
     public void createAndOpenGui(Player player, int page, int slot, String recipeId, RecipeData existingRecipe) {
+        createAndOpenGui(player, page, slot, recipeId, existingRecipe, false, 1);
+    }
+
+    public void createAndOpenGuiFromEdit(Player player, int page, int slot, String recipeId, RecipeData existingRecipe, int editPage) {
+        createAndOpenGui(player, page, slot, recipeId, existingRecipe, true, editPage);
+    }
+
+    private void createAndOpenGui(Player player, int page, int slot, String recipeId, RecipeData existingRecipe, boolean returnToEdit, int editPage) {
         String title = GUI_TITLE_PREFIX + recipeId;
         RegisterGuiHolder holder = new RegisterGuiHolder(page, slot, recipeId);
         Inventory gui = Bukkit.createInventory(holder, 54, title);
@@ -77,7 +85,7 @@ public class RegisterGuiManager implements Listener {
         }
 
         player.openInventory(gui);
-        openRegisterGuis.put(player.getUniqueId(), new RegisterData(page, slot, recipeId));
+        openRegisterGuis.put(player.getUniqueId(), new RegisterData(page, slot, recipeId, returnToEdit, editPage));
     }
 
     private void placeItemsInGrid(Inventory gui, List<CraftingMaterial> materials, int[] slots) {
@@ -176,15 +184,18 @@ public class RegisterGuiManager implements Listener {
 
     private List<Map<String, Object>> analyzeItems(List<ItemStack> snapshots) {
         Map<String, Integer> counts = new LinkedHashMap<>();
+        List<SerializedItemEntry> serializedEntries = new ArrayList<>();
         for (ItemStack item : snapshots) {
             String mmid = mythicItemUtil.findMMIDAsync(item).join();
-            String key;
             if (mmid != null) {
-                key = "mmid:" + mmid;
+                String key = "mmid:" + mmid;
+                counts.put(key, counts.getOrDefault(key, 0) + item.getAmount());
+            } else if (isSimpleVanillaItem(item)) {
+                String key = "material:" + item.getType().name();
+                counts.put(key, counts.getOrDefault(key, 0) + item.getAmount());
             } else {
-                key = "material:" + item.getType().name();
+                mergeSerializedItem(serializedEntries, item);
             }
-            counts.put(key, counts.getOrDefault(key, 0) + item.getAmount());
         }
 
         List<Map<String, Object>> resultList = new ArrayList<>();
@@ -199,7 +210,60 @@ public class RegisterGuiManager implements Listener {
             itemMap.put("amount", entry.getValue());
             resultList.add(itemMap);
         }
+
+        for (SerializedItemEntry entry : serializedEntries) {
+            Map<String, Object> itemMap = new HashMap<>();
+            itemMap.put("itemStack", entry.serializedItem);
+            itemMap.put("amount", entry.amount);
+            resultList.add(itemMap);
+        }
         return resultList;
+    }
+
+    private void mergeSerializedItem(List<SerializedItemEntry> serializedEntries, ItemStack item) {
+        ItemStack normalizedItem = item.clone();
+        normalizedItem.setAmount(1);
+        for (SerializedItemEntry entry : serializedEntries) {
+            if (inventoryUtil.isSimilar(entry.sampleItem, normalizedItem)) {
+                entry.amount += item.getAmount();
+                return;
+            }
+        }
+        serializedEntries.add(new SerializedItemEntry(normalizedItem, new LinkedHashMap<>(normalizedItem.serialize()), item.getAmount()));
+    }
+
+    private boolean isSimpleVanillaItem(ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return false;
+        }
+        if (!item.hasItemMeta()) {
+            return true;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return true;
+        }
+        if (item.getType() == Material.PLAYER_HEAD) {
+            return false;
+        }
+        return !meta.hasDisplayName()
+                && !meta.hasLore()
+                && !meta.hasCustomModelData()
+                && !meta.hasEnchants()
+                && !meta.isUnbreakable()
+                && meta.getItemFlags().isEmpty();
+    }
+
+    private static final class SerializedItemEntry {
+        private final ItemStack sampleItem;
+        private final Map<String, Object> serializedItem;
+        private int amount;
+
+        private SerializedItemEntry(ItemStack sampleItem, Map<String, Object> serializedItem, int amount) {
+            this.sampleItem = sampleItem;
+            this.serializedItem = serializedItem;
+            this.amount = amount;
+        }
     }
 
     private List<ItemStack> getSnapshots(Inventory inv, int[] slots) {
@@ -231,7 +295,10 @@ public class RegisterGuiManager implements Listener {
         Player player = (Player) event.getPlayer();
         UUID uuid = player.getUniqueId();
         if (openRegisterGuis.containsKey(uuid) && event.getView().getTopInventory().getHolder() instanceof RegisterGuiHolder) {
-            openRegisterGuis.remove(uuid);
+            RegisterData data = openRegisterGuis.remove(uuid);
+            if (data != null && data.returnToEdit && !processing.contains(uuid)) {
+                Bukkit.getScheduler().runTask(plugin, () -> plugin.getEditGuiManager().openEditGui(player, data.editPage));
+            }
         }
     }
 

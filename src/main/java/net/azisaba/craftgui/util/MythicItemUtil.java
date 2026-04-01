@@ -188,6 +188,9 @@ public class MythicItemUtil implements Listener {
             }
             return getDisplayNameFromMMID(material.getMmid());
         }
+        if (material.getDisplayName() != null && !material.getDisplayName().isEmpty()) {
+            return ChatColor.translateAlternateColorCodes('&', material.getDisplayName());
+        }
         return itemNameUtil.getName(material.getMaterial(), player);
     }
 

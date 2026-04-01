@@ -5,9 +5,7 @@ import net.azisaba.itemstash.ItemStash;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -31,6 +29,9 @@ public class InventoryUtil {
                 return true;
             }
             ItemStack sampleItem = mythicItemUtil.getItemStackFromMMID(requiredMaterial.getMmid());
+            return isSimilar(inventoryItem, sampleItem);
+        } else if (requiredMaterial.hasItemStackData()) {
+            ItemStack sampleItem = getItemStackFromMaterial(requiredMaterial);
             return isSimilar(inventoryItem, sampleItem);
         } else {
             boolean hasCustomName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasDisplayName();
@@ -166,6 +167,8 @@ public class InventoryUtil {
         ItemStack item;
         if (material.isMythicItem()) {
             item = mythicItemUtil.getItemStackFromMMID(material.getMmid());
+        } else if (material.hasItemStackData()) {
+            item = deserializeItemStack(material.getItemStackData());
         } else {
             item = new ItemStack(material.getMaterial());
         }
@@ -174,22 +177,14 @@ public class InventoryUtil {
 
     public boolean isSimilar(ItemStack baseItem, ItemStack internalItem) {
         if (baseItem == null || internalItem == null) return false;
-        if (baseItem.getType() != internalItem.getType()) return false;
-        boolean hasBaseItemMeta = baseItem.hasItemMeta();
-        boolean hasInternalItemMeta = internalItem.hasItemMeta();
-        if (hasBaseItemMeta != hasInternalItemMeta) return false;
-        if (!hasBaseItemMeta) return true;
-        ItemMeta baseItemMeta = baseItem.getItemMeta();
-        ItemMeta internalItemMeta = internalItem.getItemMeta();
-        String name1 = baseItemMeta.hasDisplayName() ? baseItemMeta.getDisplayName() : "";
-        String name2 = internalItemMeta.hasDisplayName() ? internalItemMeta.getDisplayName() : "";
-        if (!name1.equals(name2)) return false;
-        List<String> lore1 = baseItemMeta.hasLore() ? baseItemMeta.getLore() : Collections.emptyList();
-        List<String> lore2 = internalItemMeta.hasLore() ? internalItemMeta.getLore() : Collections.emptyList();
-        if (!lore1.equals(lore2)) return false;
-        Integer customModelData1 = baseItemMeta.hasCustomModelData() ? baseItemMeta.getCustomModelData() : null;
-        Integer customModelData2 = internalItemMeta.hasCustomModelData() ? internalItemMeta.getCustomModelData() : null;
-        if (!java.util.Objects.equals(customModelData1, customModelData2)) return false;
-        return true;
+        return baseItem.isSimilar(internalItem);
+    }
+
+    private ItemStack deserializeItemStack(java.util.Map<String, Object> itemStackData) {
+        try {
+            return ItemStack.deserialize(new java.util.LinkedHashMap<>(itemStackData));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
