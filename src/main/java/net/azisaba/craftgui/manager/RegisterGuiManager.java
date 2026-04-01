@@ -4,12 +4,12 @@ import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.CraftingMaterial;
 import net.azisaba.craftgui.data.RecipeData;
 import net.azisaba.craftgui.data.RegisterData;
+import net.azisaba.craftgui.gui.RegisterGuiHolder;
 import net.azisaba.craftgui.util.InventoryUtil;
 import net.azisaba.craftgui.util.MythicItemUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,10 +17,21 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
@@ -48,22 +59,16 @@ public class RegisterGuiManager implements Listener {
 
     public void createAndOpenGui(Player player, int page, int slot, String recipeId, RecipeData existingRecipe) {
         String title = GUI_TITLE_PREFIX + recipeId;
-        Inventory gui = Bukkit.createInventory(player, 54, title);
+        RegisterGuiHolder holder = new RegisterGuiHolder(page, slot, recipeId);
+        Inventory gui = Bukkit.createInventory(holder, 54, title);
+        holder.setInventory(gui);
 
         ItemStack separator = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ", null);
         for (int s : SEPARATOR_SLOTS) {
             gui.setItem(s, separator);
         }
 
-        ItemStack saveButton = createGuiItem(Material.EMERALD_BLOCK,
-                ChatColor.GREEN + "✓ レシピを保存",
-                Arrays.asList(
-                        ChatColor.GRAY + "ページ: " + page,
-                        ChatColor.GRAY + "スロット: " + slot,
-                        ChatColor.GRAY + "ID: " + recipeId,
-                        "",
-                        ChatColor.YELLOW + "クリックしてレシピを保存します"
-                ));
+        ItemStack saveButton = createGuiItem(Material.EMERALD_BLOCK, ChatColor.GREEN + "レシピを保存", Arrays.asList(ChatColor.GRAY + "ページ: " + page, ChatColor.GRAY + "スロット: " + slot, ChatColor.GRAY + "ID: " + recipeId, "", ChatColor.YELLOW + "クリックしてレシピを保存"));
         gui.setItem(SAVE_BUTTON_SLOT, saveButton);
 
         if (existingRecipe != null) {
@@ -72,7 +77,7 @@ public class RegisterGuiManager implements Listener {
         }
 
         player.openInventory(gui);
-        openRegisterGuis.put(player.getUniqueId(), new RegisterData(page, slot, recipeId, title));
+        openRegisterGuis.put(player.getUniqueId(), new RegisterData(page, slot, recipeId));
     }
 
     private void placeItemsInGrid(Inventory gui, List<CraftingMaterial> materials, int[] slots) {
@@ -84,7 +89,9 @@ public class RegisterGuiManager implements Listener {
         try {
             for (CraftingMaterial material : materials) {
                 ItemStack item = inventoryUtil.getItemStackFromMaterial(material);
-                if (item == null || item.getType().isAir()) continue;
+                if (item == null || item.getType().isAir()) {
+                    continue;
+                }
 
                 int amountToPlace = material.getAmount();
                 int maxStackSize = item.getType().getMaxStackSize();
@@ -93,7 +100,6 @@ public class RegisterGuiManager implements Listener {
                     int currentStackSize = Math.min(amountToPlace, maxStackSize);
                     item.setAmount(currentStackSize);
                     gui.setItem(slots[slotIndex], item.clone());
-
                     amountToPlace -= currentStackSize;
                     slotIndex++;
                 }
@@ -105,16 +111,34 @@ public class RegisterGuiManager implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+
         Player player = (Player) event.getWhoClicked();
         UUID uuid = player.getUniqueId();
-        if (!openRegisterGuis.containsKey(uuid)) return;
+        if (!openRegisterGuis.containsKey(uuid)) {
+            return;
+        }
+
+        InventoryHolder holder = event.getView().getTopInventory().getHolder();
+        if (!(holder instanceof RegisterGuiHolder)) {
+            return;
+        }
+
         RegisterData data = openRegisterGuis.get(uuid);
-        if (!event.getView().getTitle().equals(data.guiTitle)) return;
+        RegisterGuiHolder registerGuiHolder = (RegisterGuiHolder) holder;
+        if (registerGuiHolder.getPage() != data.page || registerGuiHolder.getSlot() != data.slot || !registerGuiHolder.getRecipeId().equals(data.recipeId)) {
+            return;
+        }
+
         event.setCancelled(false);
         int rawSlot = event.getRawSlot();
         if (rawSlot == SAVE_BUTTON_SLOT) {
             event.setCancelled(true);
-            if (processing.contains(uuid)) return;
+            if (processing.contains(uuid)) {
+                return;
+            }
             handleAsyncSave(player, event.getInventory(), data);
             player.closeInventory();
         } else if (Arrays.stream(SEPARATOR_SLOTS).anyMatch(s -> s == rawSlot)) {
@@ -125,23 +149,22 @@ public class RegisterGuiManager implements Listener {
     private void handleAsyncSave(Player player, Inventory inv, RegisterData data) {
         UUID uuid = player.getUniqueId();
         processing.add(uuid);
-        player.sendMessage(ChatColor.YELLOW + "レシピを解析しています... (非同期)");
+        player.sendMessage(ChatColor.YELLOW + "レシピを解析しています.. (非同期)");
         List<ItemStack> reqSnapshots = getSnapshots(inv, REQUIRED_SLOTS);
         List<ItemStack> resSnapshots = getSnapshots(inv, RESULT_SLOTS);
+
         CompletableFuture.supplyAsync(() -> {
             List<Map<String, Object>> reqConfig = analyzeItems(reqSnapshots);
             List<Map<String, Object>> resConfig = analyzeItems(resSnapshots);
             return new AbstractMap.SimpleEntry<>(reqConfig, resConfig);
-        }).thenAccept(pair -> {
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                try {
-                    saveToConfig(player, data, pair.getKey(), pair.getValue());
-                } finally {
-                    processing.remove(uuid);
-                    openRegisterGuis.remove(uuid);
-                }
-            });
-        }).exceptionally(ex -> {
+        }).thenAccept(pair -> Bukkit.getScheduler().runTask(plugin, () -> {
+            try {
+                saveToConfig(player, data, pair.getKey(), pair.getValue());
+            } finally {
+                processing.remove(uuid);
+                openRegisterGuis.remove(uuid);
+            }
+        })).exceptionally(ex -> {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 player.sendMessage(ChatColor.RED + "保存中にエラーが発生しました。");
                 ex.printStackTrace();
@@ -158,13 +181,12 @@ public class RegisterGuiManager implements Listener {
             String key;
             if (mmid != null) {
                 key = "mmid:" + mmid;
-            } else if (isPureVanilla(item)) {
-                key = "material:" + item.getType().name();
             } else {
                 key = "material:" + item.getType().name();
             }
             counts.put(key, counts.getOrDefault(key, 0) + item.getAmount());
         }
+
         List<Map<String, Object>> resultList = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : counts.entrySet()) {
             Map<String, Object> itemMap = new HashMap<>();
@@ -180,17 +202,13 @@ public class RegisterGuiManager implements Listener {
         return resultList;
     }
 
-    private boolean isPureVanilla(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return true;
-        ItemMeta meta = item.getItemMeta();
-        return !meta.hasDisplayName() && !meta.hasLore() && !meta.hasCustomModelData();
-    }
-
     private List<ItemStack> getSnapshots(Inventory inv, int[] slots) {
         List<ItemStack> list = new ArrayList<>();
         for (int s : slots) {
             ItemStack item = inv.getItem(s);
-            if (item != null && !item.getType().isAir()) list.add(item.clone());
+            if (item != null && !item.getType().isAir()) {
+                list.add(item.clone());
+            }
         }
         return list;
     }
@@ -204,7 +222,7 @@ public class RegisterGuiManager implements Listener {
         config.set(path + ".requiredItems", req);
         config.set(path + ".resultItems", res);
         recipeConfigManager.saveConfig();
-        plugin.sendMessage(player, "&aレシピを保存し，Hot Updateを適用しました．");
+        plugin.sendMessage(player, "&aレシピを保存しました。Hot Updateを適用しました。");
         plugin.performSafeReload(null);
     }
 
@@ -212,11 +230,8 @@ public class RegisterGuiManager implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         Player player = (Player) event.getPlayer();
         UUID uuid = player.getUniqueId();
-        if (openRegisterGuis.containsKey(uuid)) {
-            RegisterData data = openRegisterGuis.get(uuid);
-            if (event.getView().getTitle().equals(data.guiTitle)) {
-                openRegisterGuis.remove(uuid);
-            }
+        if (openRegisterGuis.containsKey(uuid) && event.getView().getTopInventory().getHolder() instanceof RegisterGuiHolder) {
+            openRegisterGuis.remove(uuid);
         }
     }
 

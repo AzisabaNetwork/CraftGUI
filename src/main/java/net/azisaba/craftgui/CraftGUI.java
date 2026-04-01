@@ -4,6 +4,7 @@ import net.azisaba.craftgui.command.CraftGuiCommand;
 import net.azisaba.craftgui.data.PlayerDataManager;
 import net.azisaba.craftgui.data.RecipeData;
 import net.azisaba.craftgui.data.RecipeLoader;
+import net.azisaba.craftgui.gui.CraftGuiHolder;
 import net.azisaba.craftgui.listener.PlayerJoinListener;
 import net.azisaba.craftgui.listener.PlayerQuitListener;
 import net.azisaba.craftgui.logging.FileLogger;
@@ -18,6 +19,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -44,7 +46,6 @@ public final class CraftGUI extends JavaPlugin {
     private Map<String, RecipeData> recipesById = new HashMap<>();
     private PlayerDataManager playerDataManager;
 
-    public static final String CRAFT_GUI_TITLE_PREFIX = "CraftGUI - Page ";
     private BukkitTask autoReloadTask;
 
     @Override
@@ -87,6 +88,7 @@ public final class CraftGUI extends JavaPlugin {
         this.assetDownloadUtil.downloadAndLoadLanguages(languages);
         this.itemNameUtil = new ItemNameUtil(assetDownloadUtil);
         this.mythicItemUtil = new MythicItemUtil(this, itemNameUtil);
+        this.mythicItemUtil.rebuildCache();
         this.inventoryUtil = new InventoryUtil(mythicItemUtil, mapUtil);
         this.fileLogger = new FileLogger(this, mythicItemUtil, inventoryUtil);
 
@@ -112,6 +114,7 @@ public final class CraftGUI extends JavaPlugin {
         this.getCommand("craftgui").setTabCompleter(commandHandler);
 
         this.getServer().getPluginManager().registerEvents(guiManager, this);
+        this.getServer().getPluginManager().registerEvents(mythicItemUtil, this);
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this, mapUtil), this);
         this.getServer().getPluginManager().registerEvents(new PlayerQuitListener(this, mapUtil), this);
         this.getServer().getPluginManager().registerEvents(registerGuiManager, this);
@@ -147,7 +150,8 @@ public final class CraftGUI extends JavaPlugin {
         }
         Map<UUID, Integer> playersToRestore = new HashMap<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getOpenInventory().getTitle().startsWith(CRAFT_GUI_TITLE_PREFIX)) {
+            InventoryHolder holder = player.getOpenInventory().getTopInventory().getHolder();
+            if (holder instanceof CraftGuiHolder) {
                 playersToRestore.put(player.getUniqueId(), mapUtil.getPlayerPage(player.getUniqueId()));
                 player.closeInventory();
             }
@@ -199,6 +203,11 @@ public final class CraftGUI extends JavaPlugin {
         Map<String, List<String>> loadedLores = recipeLoader.loadLores(recipesConfig);
         GuiUtil guiUtil = new GuiUtil(inventoryUtil, mythicItemUtil, loadedLores, mapUtil);
 
+        if (this.mythicItemUtil != null) {
+            HandlerList.unregisterAll(this.mythicItemUtil);
+            this.mythicItemUtil.rebuildCache();
+            this.getServer().getPluginManager().registerEvents(this.mythicItemUtil, this);
+        }
         if (this.guiManager != null) {
             HandlerList.unregisterAll(this.guiManager);
         }

@@ -39,12 +39,14 @@ public class PlayerDataManager {
         }
         mapUtil.setSoundToggleState(uuid, data.isSoundOn());
         mapUtil.setShowResultItems(uuid, data.isShowResultItems());
+        mapUtil.setCraftableOnlyState(uuid, data.isCraftableOnly());
     }
 
     public void savePlayerData(UUID uuid, MapUtil mapUtil) {
         PlayerData data = new PlayerData();
         data.setSoundOn(mapUtil.isSoundToggleOn(uuid));
         data.setShowResultItems(mapUtil.isShowResultItems(uuid));
+        data.setCraftableOnly(mapUtil.isCraftableOnlyEnabled(uuid));
 
         File playerFile = new File(dataFolder, uuid.toString() + ".json");
         try (Writer writer = new FileWriter(playerFile)) {

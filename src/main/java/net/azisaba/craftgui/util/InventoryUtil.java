@@ -187,6 +187,9 @@ public class InventoryUtil {
         List<String> lore1 = baseItemMeta.hasLore() ? baseItemMeta.getLore() : Collections.emptyList();
         List<String> lore2 = internalItemMeta.hasLore() ? internalItemMeta.getLore() : Collections.emptyList();
         if (!lore1.equals(lore2)) return false;
+        Integer customModelData1 = baseItemMeta.hasCustomModelData() ? baseItemMeta.getCustomModelData() : null;
+        Integer customModelData2 = internalItemMeta.hasCustomModelData() ? internalItemMeta.getCustomModelData() : null;
+        if (!java.util.Objects.equals(customModelData1, customModelData2)) return false;
         return true;
     }
 }

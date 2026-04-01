@@ -3,6 +3,7 @@ package net.azisaba.craftgui.manager;
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.RecipeData;
 import net.azisaba.craftgui.data.RecipeInfo;
+import net.azisaba.craftgui.gui.EditGuiHolder;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -14,10 +15,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class EditGuiManager implements Listener {
 
@@ -25,7 +34,6 @@ public class EditGuiManager implements Listener {
     private final RecipeConfigManager recipeConfigManager;
     private final RegisterGuiManager registerGuiManager;
 
-    public static final String EDIT_GUI_TITLE_PREFIX = "CraftGUI Edit - Page ";
     private final Map<UUID, Integer> openEditGuis = new HashMap<>();
     private final Map<UUID, List<RecipeInfo>> playerEditList = new HashMap<>();
     private final Set<UUID> isNavigating = new HashSet<>();
@@ -39,23 +47,26 @@ public class EditGuiManager implements Listener {
     public void openEditGui(Player player, int page) {
         List<RecipeInfo> allRecipes = loadAllRecipeInfo();
         if (allRecipes.isEmpty()) {
-            plugin.sendMessage(player, ChatColor.RED + "編集可能なレシピがrecipes.ymlに見つかりません．");
+            plugin.sendMessage(player, ChatColor.RED + "編集可能なレシピがrecipes.ymlに見つかりません。");
             return;
         }
 
         playerEditList.put(player.getUniqueId(), allRecipes);
         openEditGuiInternal(player, page, allRecipes);
-        playerEditList.put(player.getUniqueId(), allRecipes);
     }
 
     private void openEditGuiInternal(Player player, int page, List<RecipeInfo> allRecipes) {
-        String title = EDIT_GUI_TITLE_PREFIX + page;
-        Inventory gui = Bukkit.createInventory(player, 54, title);
+        String title = "CraftGUI Edit - Page " + page;
+        EditGuiHolder holder = new EditGuiHolder(page);
+        Inventory gui = Bukkit.createInventory(holder, 54, title);
+        holder.setInventory(gui);
 
         int itemsPerPage = 45;
         int startIndex = (page - 1) * itemsPerPage;
         int maxPage = (int) Math.ceil((double) allRecipes.size() / itemsPerPage);
-        if (maxPage == 0) maxPage = 1;
+        if (maxPage == 0) {
+            maxPage = 1;
+        }
 
         if (startIndex >= allRecipes.size() && page > 1) {
             openEditGuiInternal(player, maxPage, allRecipes);
@@ -64,7 +75,9 @@ public class EditGuiManager implements Listener {
 
         for (int i = 0; i < itemsPerPage; i++) {
             int recipeIndex = startIndex + i;
-            if (recipeIndex >= allRecipes.size()) break;
+            if (recipeIndex >= allRecipes.size()) {
+                break;
+            }
 
             RecipeInfo info = allRecipes.get(recipeIndex);
             RecipeData recipeData = plugin.getRecipeById(info.id);
@@ -75,7 +88,7 @@ public class EditGuiManager implements Listener {
             } else {
                 item = new ItemStack(Material.BARRIER);
                 ItemMeta meta = item.getItemMeta();
-                if(meta != null) {
+                if (meta != null) {
                     meta.setDisplayName(ChatColor.RED + "[ロードエラー or 無効]");
                     item.setItemMeta(meta);
                 }
@@ -86,26 +99,32 @@ public class EditGuiManager implements Listener {
                 meta = Bukkit.getItemFactory().getItemMeta(item.getType());
             }
 
-            meta.setDisplayName(ChatColor.YELLOW + "[編集] " + ChatColor.RESET + (meta.hasDisplayName() ? meta.getDisplayName() : info.id));
-            List<String> lore = meta.hasLore() ? meta.getLore() : new ArrayList<>();
-            lore.add("");
-            lore.add(ChatColor.GRAY + "ID: " + info.id);
-            lore.add(ChatColor.GRAY + "場所: page" + info.page + "." + info.slot);
-            if (!info.isEnabled) {
-                lore.add(ChatColor.RED + "✘ enabled: false");
+            if (meta != null) {
+                meta.setDisplayName(ChatColor.YELLOW + "[編集] " + ChatColor.RESET + (meta.hasDisplayName() ? meta.getDisplayName() : info.id));
+                List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+                lore.add("");
+                lore.add(ChatColor.GRAY + "ID: " + info.id);
+                lore.add(ChatColor.GRAY + "場所: page" + info.page + "." + info.slot);
+                if (!info.isEnabled) {
+                    lore.add(ChatColor.RED + "enabled: false");
+                }
+                if (!info.isCraftable) {
+                    lore.add(ChatColor.RED + "craftable: false");
+                }
+                lore.add(ChatColor.GREEN + "クリックしてこのレシピを編集");
+                meta.setLore(lore);
+                item.setItemMeta(meta);
             }
-            if (!info.isCraftable) {
-                lore.add(ChatColor.RED + "✘ craftable: false");
-            }
-            lore.add(ChatColor.GREEN + "クリックしてこのレシピを編集します");
-            meta.setLore(lore);
-            item.setItemMeta(meta);
 
             gui.setItem(i, item);
         }
 
-        if (page > 1) gui.setItem(45, createNavItem(Material.ARROW, ChatColor.YELLOW + "前のページへ"));
-        if (page < maxPage) gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ"));
+        if (page > 1) {
+            gui.setItem(45, createNavItem(Material.ARROW, ChatColor.YELLOW + "前のページへ"));
+        }
+        if (page < maxPage) {
+            gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ"));
+        }
         gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる"));
 
         isNavigating.add(player.getUniqueId());
@@ -117,23 +136,28 @@ public class EditGuiManager implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().startsWith(EDIT_GUI_TITLE_PREFIX)) return;
+        InventoryHolder holder = event.getView().getTopInventory().getHolder();
+        if (!(holder instanceof EditGuiHolder)) {
+            return;
+        }
 
         event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
         UUID uuid = player.getUniqueId();
 
-        if (isNavigating.contains(uuid)) return;
-        if (!openEditGuis.containsKey(uuid)) return;
+        if (isNavigating.contains(uuid) || !openEditGuis.containsKey(uuid)) {
+            return;
+        }
 
         int slot = event.getRawSlot();
         int currentPage = openEditGuis.get(uuid);
         List<RecipeInfo> allRecipes = playerEditList.get(uuid);
         if (allRecipes == null) {
             player.closeInventory();
-            plugin.sendMessage(player, "&cセッションが切れました．もう一度/craftgui editを実行してください．");
+            plugin.sendMessage(player, "&cセッションが切れました。もう一度/craftgui editを実行してください。");
             return;
         }
+
         if (slot == 45 && currentPage > 1) {
             openEditGuiInternal(player, currentPage - 1, allRecipes);
             return;
@@ -157,8 +181,8 @@ public class EditGuiManager implements Listener {
                 RecipeData recipeData = plugin.getRecipeById(info.id);
 
                 if (recipeData == null) {
-                    plugin.sendMessage(player, ChatColor.RED + "エラー: このレシピは現在メモリにロードされていません．");
-                    plugin.sendMessage(player, ChatColor.GRAY + "編集するには，一時的にrecipes.ymlでenabled: trueにしてリロードしてください．");
+                    plugin.sendMessage(player, ChatColor.RED + "エラー: このレシピは現在メモリにロードされていません。");
+                    plugin.sendMessage(player, ChatColor.GRAY + "編集するには、一度正常な状態に戻してから再度試してください。");
                     return;
                 }
 
@@ -170,12 +194,16 @@ public class EditGuiManager implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getView().getTitle().startsWith(EDIT_GUI_TITLE_PREFIX)) {
-            UUID uuid = event.getPlayer().getUniqueId();
-            if (isNavigating.contains(uuid)) return;
-            openEditGuis.remove(uuid);
-            playerEditList.remove(uuid);
+        if (!(event.getView().getTopInventory().getHolder() instanceof EditGuiHolder)) {
+            return;
         }
+
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (isNavigating.contains(uuid)) {
+            return;
+        }
+        openEditGuis.remove(uuid);
+        playerEditList.remove(uuid);
     }
 
     private List<RecipeInfo> loadAllRecipeInfo() {
@@ -188,13 +216,19 @@ public class EditGuiManager implements Listener {
 
         for (String pageKey : itemsSection.getKeys(false)) {
             int page = safeParseInt(pageKey.substring(4));
-            if (page <= 0) continue;
+            if (page <= 0) {
+                continue;
+            }
             ConfigurationSection pageSection = itemsSection.getConfigurationSection(pageKey);
-            if (pageSection == null) continue;
+            if (pageSection == null) {
+                continue;
+            }
 
             for (String slotKey : pageSection.getKeys(false)) {
                 int slot = safeParseInt(slotKey);
-                if (slot < 0) continue;
+                if (slot < 0) {
+                    continue;
+                }
 
                 String id = pageSection.getString(slotKey + ".id");
                 if (id != null && !id.isEmpty()) {
@@ -219,7 +253,7 @@ public class EditGuiManager implements Listener {
     private ItemStack createNavItem(Material material, String name) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        if(meta != null) {
+        if (meta != null) {
             meta.setDisplayName(name);
             item.setItemMeta(meta);
         }
