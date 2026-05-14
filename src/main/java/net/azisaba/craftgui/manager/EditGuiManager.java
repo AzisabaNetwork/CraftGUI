@@ -84,7 +84,7 @@ public class EditGuiManager implements Listener {
 
             ItemStack item;
             if (recipeData != null && recipeData.getGuiIcon() != null) {
-                item = recipeData.getGuiIcon().clone();
+                item = new ItemStack(recipeData.getGuiIcon());
             } else {
                 item = new ItemStack(Material.BARRIER);
                 ItemMeta meta = item.getItemMeta();

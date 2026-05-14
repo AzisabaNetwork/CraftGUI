@@ -107,7 +107,7 @@ public class RegisterGuiManager implements Listener {
                 while (amountToPlace > 0 && slotIndex < slots.length) {
                     int currentStackSize = Math.min(amountToPlace, maxStackSize);
                     item.setAmount(currentStackSize);
-                    gui.setItem(slots[slotIndex], item.clone());
+                    gui.setItem(slots[slotIndex], new ItemStack(item));
                     amountToPlace -= currentStackSize;
                     slotIndex++;
                 }
@@ -271,7 +271,7 @@ public class RegisterGuiManager implements Listener {
         for (int s : slots) {
             ItemStack item = inv.getItem(s);
             if (item != null && !item.getType().isAir()) {
-                list.add(item.clone());
+                list.add(new ItemStack(item));
             }
         }
         return list;

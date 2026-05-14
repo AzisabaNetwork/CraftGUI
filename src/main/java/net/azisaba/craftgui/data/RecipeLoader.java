@@ -1,8 +1,5 @@
 package net.azisaba.craftgui.data;
 
-import io.lumine.xikage.mythicmobs.MythicMobs;
-import io.lumine.xikage.mythicmobs.adapters.bukkit.BukkitItemStack;
-import io.lumine.xikage.mythicmobs.items.MythicItem;
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.util.MythicItemUtil;
 import org.bukkit.ChatColor;
@@ -149,11 +146,15 @@ public class RecipeLoader {
     }
 
     private ItemStack createMythicItem(String mmid, String pageKey, String slotKey) {
-        Optional<MythicItem> mythicItemOpt = MythicMobs.inst().getItemManager().getItem(mmid);
-        if (mythicItemOpt.isPresent()) {
-            return ((BukkitItemStack) mythicItemOpt.get().generateItemStack(1)).build();
-        } else {
+        try {
+            ItemStack item = mythicItemUtil.getItemStackFromMMID(mmid);
+            if (item != null && !item.getType().isAir()) {
+                return item;
+            }
             addError(pageKey, slotKey, "指定されたMythicMobsアイテムが見つかりません: " + mmid);
+            return createErrorItem("不明なMMID: " + mmid);
+        } catch (Exception e) {
+            addError(pageKey, slotKey, "Mythicアイテムの生成中に例外が発生しました: " + e.getMessage());
             return createErrorItem("不明なMMID: " + mmid);
         }
     }

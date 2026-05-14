@@ -28,11 +28,11 @@ public class GuiUtil {
     }
 
     public ItemStack createBaseRecipeItem(RecipeData recipeData) {
-        ItemStack item = recipeData.getGuiIcon().clone();
+        ItemStack item = new ItemStack(recipeData.getGuiIcon());
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setLore(null);
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_POTION_EFFECTS, ItemFlag.HIDE_UNBREAKABLE);
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_UNBREAKABLE);
             item.setItemMeta(meta);
         }
         return item;

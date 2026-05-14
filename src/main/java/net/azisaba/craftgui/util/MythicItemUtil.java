@@ -1,16 +1,14 @@
 package net.azisaba.craftgui.util;
 
-import io.lumine.xikage.mythicmobs.MythicMobs;
-import io.lumine.xikage.mythicmobs.adapters.bukkit.BukkitItemStack;
-import io.lumine.xikage.mythicmobs.api.bukkit.events.MythicReloadedEvent;
-import io.lumine.xikage.mythicmobs.items.ItemManager;
-import io.lumine.xikage.mythicmobs.items.MythicItem;
+import io.lumine.mythic.api.items.ItemManager;
+import io.lumine.mythic.bukkit.BukkitAdapter;
+import io.lumine.mythic.bukkit.MythicBukkit;
+import io.lumine.mythic.bukkit.events.MythicReloadedEvent;
+import io.lumine.mythic.core.items.MythicItem;
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.CraftingMaterial;
-import net.minecraft.server.v1_15_R1.NBTTagCompound;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -46,14 +44,14 @@ public class MythicItemUtil implements Listener {
 
     public void rebuildCache() {
         try {
-            MythicMobs mythicMobs = MythicMobs.inst();
-            if (mythicMobs == null) {
+            MythicBukkit mythicBukkit = MythicBukkit.inst();
+            if (mythicBukkit == null) {
                 clearCache();
                 plugin.getLogger().warning("MythicMobs is not available. Mythic item cache was cleared.");
                 return;
             }
 
-            ItemManager manager = mythicMobs.getItemManager();
+            ItemManager manager = mythicBukkit.getItemManager();
             if (manager == null) {
                 clearCache();
                 plugin.getLogger().warning("MythicMobs ItemManager is not available. Mythic item cache was cleared.");
@@ -68,12 +66,12 @@ public class MythicItemUtil implements Listener {
             Collection<MythicItem> allItems = manager.getItems();
             for (MythicItem mythicItem : allItems) {
                 String mmid = mythicItem.getInternalName();
-                ItemStack builtItem = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
+                ItemStack builtItem = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
                 if (builtItem == null || builtItem.getType().isAir()) {
                     continue;
                 }
 
-                ItemStack normalizedItem = builtItem.clone();
+                ItemStack normalizedItem = new ItemStack(builtItem);
                 normalizedItem.setAmount(1);
                 newItemStackCache.put(mmid, normalizedItem);
 
@@ -106,19 +104,8 @@ public class MythicItemUtil implements Listener {
     }
 
     public String getMMIDFromNBT(ItemStack item) {
-        try {
-            net.minecraft.server.v1_15_R1.ItemStack nmsItem = CraftItemStack.asNMSCopy(item);
-            if (!nmsItem.hasTag()) {
-                return null;
-            }
-            NBTTagCompound tag = nmsItem.getTag();
-            if (tag == null || !tag.hasKey("MYTHIC_TYPE")) {
-                return null;
-            }
-            return tag.getString("MYTHIC_TYPE");
-        } catch (Exception e) {
-            return null;
-        }
+        if (item == null || !item.hasItemMeta()) return null;
+        return MythicBukkit.inst().getItemManager().getMythicTypeFromItem(item);
     }
 
     private Optional<MythicItem> getMythicItem(String mmid) {
@@ -126,10 +113,10 @@ public class MythicItemUtil implements Listener {
             return Optional.empty();
         }
         try {
-            if (MythicMobs.inst() == null) {
+            if (MythicBukkit.inst() == null) {
                 return Optional.empty();
             }
-            return MythicMobs.inst().getItemManager().getItem(mmid);
+            return MythicBukkit.inst().getItemManager().getItem(mmid);
         } catch (Exception e) {
             return Optional.empty();
         }
@@ -138,12 +125,12 @@ public class MythicItemUtil implements Listener {
     public ItemStack getItemStackFromMMID(String mmid) {
         ItemStack cached = itemStackCache.get(mmid);
         if (cached != null) {
-            return cached.clone();
+            return new ItemStack(cached);
         }
 
         return getMythicItem(mmid)
                 .map(mythicItem -> {
-                    ItemStack item = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
+                    ItemStack item = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
                     if (item == null) {
                         return null;
                     }
@@ -175,7 +162,7 @@ public class MythicItemUtil implements Listener {
 
         return getMythicItem(mmid)
                 .map(mythicItem -> {
-                    ItemStack itemStack = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
+                    ItemStack itemStack = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
                     return extractLore(itemStack);
                 })
                 .orElse(Collections.emptyList());
@@ -214,7 +201,7 @@ public class MythicItemUtil implements Listener {
 
     private String findMMIDByFullScan(ItemStack item) {
         try {
-            MythicMobs mm = MythicMobs.inst();
+            MythicBukkit mm = MythicBukkit.inst();
             if (mm == null) {
                 return null;
             }
@@ -224,7 +211,7 @@ public class MythicItemUtil implements Listener {
             }
 
             for (MythicItem mythicItem : manager.getItems()) {
-                ItemStack mmItem = ((BukkitItemStack) mythicItem.generateItemStack(1)).build();
+                ItemStack mmItem = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
                 if (isSimilar(item, mmItem)) {
                     return mythicItem.getInternalName();
                 }
