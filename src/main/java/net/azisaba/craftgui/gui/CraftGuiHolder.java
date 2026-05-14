@@ -2,6 +2,7 @@ package net.azisaba.craftgui.gui;
 
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.jspecify.annotations.NonNull;
 
 public class CraftGuiHolder implements InventoryHolder {
 
@@ -21,7 +22,7 @@ public class CraftGuiHolder implements InventoryHolder {
     }
 
     @Override
-    public Inventory getInventory() {
+    public @NonNull Inventory getInventory() {
         return inventory;
     }
 }

@@ -11,11 +11,11 @@ import java.util.Map;
 public class StorageBoxUtil {
 
     private static boolean isEnabled() {
-        return Bukkit.getPluginManager().isPluginEnabled("StorageBox");
+        return !Bukkit.getPluginManager().isPluginEnabled("StorageBox");
     }
 
     public static boolean tryAddItemToStorageBox(Inventory inventory, ItemStack stack) {
-        if (!isEnabled()) return false;
+        if (isEnabled()) return false;
         try {
             Map.Entry<Integer, StorageBox> entry = StorageBoxUtils.getStorageBoxForType(inventory, stack);
             if (entry != null) {
@@ -31,7 +31,7 @@ public class StorageBoxUtil {
     }
 
     public static ItemStack getStoredItem(ItemStack stack) {
-        if (stack == null || !isEnabled()) return null;
+        if (stack == null || isEnabled()) return null;
         try {
             StorageBox box = StorageBox.getStorageBox(stack);
             if (box != null) {
@@ -42,7 +42,7 @@ public class StorageBoxUtil {
     }
 
     public static long getStoredAmount(ItemStack stack) {
-        if (stack == null || !isEnabled()) return 0;
+        if (stack == null || isEnabled()) return 0;
         try {
             StorageBox box = StorageBox.getStorageBox(stack);
             if (box != null) {
@@ -53,7 +53,7 @@ public class StorageBoxUtil {
     }
 
     public static ItemStack setStoredAmount(ItemStack stack, long newAmount) {
-        if (!isEnabled()) return stack;
+        if (isEnabled()) return stack;
         try {
             StorageBox box = StorageBox.getStorageBox(stack);
             if (box != null) {

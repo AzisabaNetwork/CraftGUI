@@ -6,6 +6,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,17 +32,18 @@ public class InventoryUtil {
         }
         if (requiredMaterial.isMythicItem()) {
             String inventoryItemMMID = mythicItemUtil.getMMIDFromNBT(inventoryItem);
-            if (inventoryItemMMID != null && requiredMaterial.getMmid().equals(inventoryItemMMID)) {
+            if (inventoryItemMMID != null && requiredMaterial.mmid().equals(inventoryItemMMID)) {
                 return true;
             }
-            ItemStack sampleItem = mythicItemUtil.getItemStackFromMMID(requiredMaterial.getMmid());
+            ItemStack sampleItem = mythicItemUtil.getItemStackFromMMID(requiredMaterial.mmid());
             return isSimilar(inventoryItem, sampleItem);
         } else if (requiredMaterial.hasItemStackData()) {
             ItemStack sampleItem = getItemStackFromMaterial(requiredMaterial);
             return isSimilar(inventoryItem, sampleItem);
         } else {
-            boolean hasCustomName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasDisplayName();
-            return inventoryItem.getType() == requiredMaterial.getMaterial() && !hasCustomName;
+            // 現代的な hasCustomName() を使用
+            boolean hasCustomName = inventoryItem.hasItemMeta() && inventoryItem.getItemMeta().hasCustomName();
+            return inventoryItem.getType() == requiredMaterial.material() && !hasCustomName;
         }
     }
 
@@ -62,21 +65,18 @@ public class InventoryUtil {
 
     public long calculateMaxCraftableAmount(Player player, List<CraftingMaterial> requiredItems, List<CraftingMaterial> resultItems) {
         if (requiredItems.isEmpty()) return 0;
-
         long maxCraftableByMaterial = Long.MAX_VALUE;
         for (CraftingMaterial item : requiredItems) {
-            if (item.getAmount() <= 0) continue;
+            if (item.amount() <= 0) continue;
             long ownedAmount = countItems(player, item);
-            maxCraftableByMaterial = Math.min(maxCraftableByMaterial, ownedAmount / item.getAmount());
+            maxCraftableByMaterial = Math.min(maxCraftableByMaterial, ownedAmount / item.amount());
         }
-
         if (resultItems == null || resultItems.isEmpty() || mapUtil.isStashEnabled(player.getUniqueId())) {
             return maxCraftableByMaterial;
         }
-
         long maxCraftableByInventory = Long.MAX_VALUE;
         for (CraftingMaterial result : resultItems) {
-            if (result.getAmount() <= 0) continue;
+            if (result.amount() <= 0) continue;
             ItemStack sampleStack = getItemStackFromMaterial(result);
             if (sampleStack == null || sampleStack.getType().isAir()) continue;
             boolean hasBox = false;
@@ -99,7 +99,7 @@ public class InventoryUtil {
                     }
                 }
             }
-            maxCraftableByInventory = Math.min(maxCraftableByInventory, freeSpace / result.getAmount());
+            maxCraftableByInventory = Math.min(maxCraftableByInventory, freeSpace / result.amount());
         }
         return Math.min(maxCraftableByMaterial, maxCraftableByInventory);
     }
@@ -138,18 +138,16 @@ public class InventoryUtil {
     public void giveResultItems(Player player, List<CraftingMaterial> resultItems, int craftAmount) {
         boolean isStashEnabled = mapUtil.isStashEnabled(player.getUniqueId());
         for (CraftingMaterial result : resultItems) {
-            int totalAmount = result.getAmount() * craftAmount;
+            int totalAmount = result.amount() * craftAmount;
             if (totalAmount <= 0) continue;
             ItemStack giveItem;
             if (result.isMythicItem()) {
-                giveItem = mythicItemUtil.getItemStackFromMMID(result.getMmid());
+                giveItem = mythicItemUtil.getItemStackFromMMID(result.mmid());
             } else {
-                giveItem = new ItemStack(result.getMaterial());
+                giveItem = new ItemStack(result.material());
             }
-
             if (giveItem == null) continue;
             giveItem.setAmount(totalAmount);
-
             if (isStashEnabled) {
                 ItemStash.getInstance().addItemToStash(player.getUniqueId(), giveItem);
             } else {
@@ -160,7 +158,7 @@ public class InventoryUtil {
                         leftOver.values().forEach(item ->
                                 ItemStash.getInstance().addItemToStash(player.getUniqueId(), item)
                         );
-                        player.sendMessage(org.bukkit.ChatColor.YELLOW + "インベントリに入りきらなかったアイテムをStashに保管しました．");
+                        player.sendMessage(Component.text("インベントリに入りきらなかったアイテムをStashに保管しました．").color(NamedTextColor.YELLOW));
                     }
                 }
             }
@@ -171,11 +169,11 @@ public class InventoryUtil {
         if (material == null) return null;
         ItemStack item;
         if (material.isMythicItem()) {
-            item = mythicItemUtil.getItemStackFromMMID(material.getMmid());
+            item = mythicItemUtil.getItemStackFromMMID(material.mmid());
         } else if (material.hasItemStackData()) {
-            item = deserializeItemStack(material.getItemStackData());
+            item = deserializeItemStack(material.itemStackData());
         } else {
-            item = new ItemStack(material.getMaterial());
+            item = new ItemStack(material.material());
         }
         return item;
     }
@@ -218,8 +216,8 @@ public class InventoryUtil {
             return firstMeta == null && secondMeta == null;
         }
 
-        return Objects.equals(firstMeta.hasDisplayName() ? firstMeta.getDisplayName() : null, secondMeta.hasDisplayName() ? secondMeta.getDisplayName() : null)
-                && Objects.equals(firstMeta.hasLore() ? firstMeta.getLore() : null, secondMeta.hasLore() ? secondMeta.getLore() : null)
+        return Objects.equals(firstMeta.displayName(), secondMeta.displayName())
+                && Objects.equals(firstMeta.lore(), secondMeta.lore())
                 && Objects.equals(firstMeta.hasCustomModelData() ? firstMeta.getCustomModelData() : null, secondMeta.hasCustomModelData() ? secondMeta.getCustomModelData() : null)
                 && Objects.equals(firstMeta.getEnchants(), secondMeta.getEnchants())
                 && firstMeta.isUnbreakable() == secondMeta.isUnbreakable()

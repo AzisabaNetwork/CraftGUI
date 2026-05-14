@@ -10,7 +10,6 @@ import net.azisaba.craftgui.util.InventoryUtil;
 import net.azisaba.craftgui.util.MapUtil;
 import net.azisaba.craftgui.util.MythicItemUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -22,6 +21,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,7 +70,7 @@ public class GuiManager implements Listener {
 
         String title = "CraftGUI - " + (isCompactView ? "All Items (Page " + resolvedPage + ")" : "Page " + resolvedPage);
         CraftGuiHolder holder = new CraftGuiHolder(resolvedPage);
-        Inventory playerGui = Bukkit.createInventory(holder, 54, title);
+        Inventory playerGui = Bukkit.createInventory(holder, 54, Component.text(title));
         holder.setInventory(playerGui);
 
         for (Map.Entry<Integer, RecipeData> entry : visiblePages.get(resolvedPage - 1).entrySet()) {
@@ -85,7 +86,7 @@ public class GuiManager implements Listener {
 
     @EventHandler
     public void onGuiClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
@@ -95,7 +96,6 @@ public class GuiManager implements Listener {
         }
 
         event.setCancelled(true);
-        Player player = (Player) event.getWhoClicked();
         int slot = event.getRawSlot();
         if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) {
             return;
@@ -116,8 +116,8 @@ public class GuiManager implements Listener {
             return;
         }
 
-        if (!clickedRecipe.isCraftable()) {
-            plugin.sendMessage(player, "&cこのアイテムはクラフトできません。");
+        if (clickedRecipe.isCraftable()) {
+            plugin.sendMessage(player, Component.text("このアイテムはクラフトできません。").color(NamedTextColor.RED));
             if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
@@ -130,7 +130,7 @@ public class GuiManager implements Listener {
     private void attemptCraft(Player player, RecipeData recipe, ClickType click, InventoryClickEvent event) {
         long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getResultItems());
         if (maxCraftable <= 0) {
-            plugin.sendMessage(player, "&cクラフトに必要なアイテムが不足しているか、インベントリに空きがありません。");
+            plugin.sendMessage(player, Component.text("クラフトに必要なアイテムが不足しているか、インベントリに空きがありません。").color(NamedTextColor.RED));
             if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
@@ -150,11 +150,11 @@ public class GuiManager implements Listener {
 
         craftAmount = (int) Math.min(craftAmount, maxCraftable);
         for (CraftingMaterial material : recipe.getRequiredItems()) {
-            inventoryUtil.removeItems(player, material, material.getAmount() * craftAmount);
+            inventoryUtil.removeItems(player, material, material.amount() * craftAmount);
         }
         inventoryUtil.giveResultItems(player, recipe.getResultItems(), craftAmount);
         fileLogger.logCraft(player, recipe, craftAmount);
-        plugin.sendMessage(player, ChatColor.GREEN + "" + craftAmount + "回変換しました。");
+        plugin.sendMessage(player, Component.text(craftAmount + "回変換しました。").color(NamedTextColor.GREEN));
         if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }
@@ -185,7 +185,7 @@ public class GuiManager implements Listener {
                 mapUtil.toggleStashEnabled(player.getUniqueId());
                 boolean isStashEnabled = mapUtil.isStashEnabled(player.getUniqueId());
                 String msg = isStashEnabled ? "アイテムをStashに送るように切り替えました。" : "通常どおりインベントリに送るように切り替えました。";
-                plugin.sendMessage(player, ChatColor.GREEN + msg);
+                plugin.sendMessage(player, Component.text(msg).color(NamedTextColor.GREEN));
             } else if (slot == 50) {
                 mapUtil.toggleCompactViewState(player.getUniqueId());
                 newPage = 1;
@@ -227,40 +227,41 @@ public class GuiManager implements Listener {
         boolean isCompactView = mapUtil.isCompactViewEnabled(uuid);
 
         if (currentPage > 1) {
-            gui.setItem(45, createNavItem(Material.ARROW, ChatColor.YELLOW + "前のページへ", Collections.emptyList()));
+            gui.setItem(45, createNavItem(Material.ARROW, Component.text("前のページへ").color(NamedTextColor.YELLOW), Collections.emptyList()));
         }
         if (currentPage < maxPage) {
-            gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ", Collections.emptyList()));
+            gui.setItem(53, createNavItem(Material.ARROW, Component.text("次のページへ").color(NamedTextColor.GREEN), Collections.emptyList()));
         }
 
         boolean craftableOnly = mapUtil.isCraftableOnlyEnabled(uuid);
-        gui.setItem(46, createNavItem(craftableOnly ? Material.LIME_STAINED_GLASS_PANE : Material.RED_STAINED_GLASS_PANE, ChatColor.GREEN + "クラフト可能のみ表示", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (craftableOnly ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
+        gui.setItem(46, createNavItem(craftableOnly ? Material.LIME_STAINED_GLASS_PANE : Material.RED_STAINED_GLASS_PANE, Component.text("クラフト可能のみ表示").color(NamedTextColor.GREEN), Collections.singletonList(Component.text("現在の設定: ").color(NamedTextColor.GRAY).append(Component.text(craftableOnly ? "ON" : "OFF").color(craftableOnly ? NamedTextColor.AQUA : NamedTextColor.RED)))));
 
         boolean soundOn = mapUtil.isSoundToggleOn(uuid);
-        gui.setItem(47, createNavItem(soundOn ? Material.JUKEBOX : Material.NOTE_BLOCK, ChatColor.GREEN + "サウンド設定", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (soundOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
+        gui.setItem(47, createNavItem(soundOn ? Material.JUKEBOX : Material.NOTE_BLOCK, Component.text("サウンド設定").color(NamedTextColor.GREEN), Collections.singletonList(Component.text("現在の設定: ").color(NamedTextColor.GRAY).append(Component.text(soundOn ? "ON" : "OFF").color(soundOn ? NamedTextColor.AQUA : NamedTextColor.RED)))));
 
         boolean isStashEnabled = mapUtil.isStashEnabled(uuid);
         Material stashIcon = isStashEnabled ? Material.ENDER_CHEST : Material.CHEST;
-        String stashStatus = isStashEnabled ? ChatColor.AQUA + "Stashへ送る" : ChatColor.GOLD + "インベントリへ送る";
-        gui.setItem(48, createNavItem(stashIcon, ChatColor.GREEN + "アイテム受け取り先", Arrays.asList(ChatColor.GRAY + "現在の設定: " + stashStatus, ChatColor.GRAY + "クリックで切り替え")));
+        String stashStatusStr = isStashEnabled ? "Stashへ送る" : "インベントリへ送る";
+        NamedTextColor stashColor = isStashEnabled ? NamedTextColor.AQUA : NamedTextColor.GOLD;
+        gui.setItem(48, createNavItem(stashIcon, Component.text("アイテム受け取り先").color(NamedTextColor.GREEN), Arrays.asList(Component.text("現在の設定: ").color(NamedTextColor.GRAY).append(Component.text(stashStatusStr).color(stashColor)), Component.text("クリックで切り替え").color(NamedTextColor.GRAY))));
 
-        gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる", Collections.emptyList()));
+        gui.setItem(49, createNavItem(Material.BARRIER, Component.text("閉じる").color(NamedTextColor.RED), Collections.emptyList()));
 
-        gui.setItem(50, createNavItem(isCompactView ? Material.WATER_BUCKET : Material.BUCKET, ChatColor.GREEN + "表示モード", Collections.singletonList(ChatColor.GRAY + "現在のモード: " + (isCompactView ? ChatColor.AQUA + "コンパクト" : ChatColor.GRAY + "デフォルト"))));
+        gui.setItem(50, createNavItem(isCompactView ? Material.WATER_BUCKET : Material.BUCKET, Component.text("表示モード").color(NamedTextColor.GREEN), Collections.singletonList(Component.text("現在のモード: ").color(NamedTextColor.GRAY).append(Component.text(isCompactView ? "コンパクト" : "デフォルト").color(isCompactView ? NamedTextColor.AQUA : NamedTextColor.GRAY)))));
 
         boolean showResult = mapUtil.isShowResultItems(uuid);
-        gui.setItem(51, createNavItem(showResult ? Material.HONEY_BOTTLE : Material.GLASS_BOTTLE, ChatColor.GREEN + "結果アイテム表示", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (showResult ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
+        gui.setItem(51, createNavItem(showResult ? Material.HONEY_BOTTLE : Material.GLASS_BOTTLE, Component.text("結果アイテム表示").color(NamedTextColor.GREEN), Collections.singletonList(Component.text("現在の設定: ").color(NamedTextColor.GRAY).append(Component.text(showResult ? "ON" : "OFF").color(showResult ? NamedTextColor.AQUA : NamedTextColor.RED)))));
 
         boolean loreOn = mapUtil.isLoreToggledOn(uuid);
-        gui.setItem(52, createNavItem(loreOn ? Material.LIME_DYE : Material.GRAY_DYE, ChatColor.GREEN + "説明文表示", Collections.singletonList(ChatColor.GRAY + "現在の設定: " + (loreOn ? ChatColor.AQUA + "ON" : ChatColor.RED + "OFF"))));
+        gui.setItem(52, createNavItem(loreOn ? Material.LIME_DYE : Material.GRAY_DYE, Component.text("説明文表示").color(NamedTextColor.GREEN), Collections.singletonList(Component.text("現在の設定: ").color(NamedTextColor.GRAY).append(Component.text(loreOn ? "ON" : "OFF").color(loreOn ? NamedTextColor.AQUA : NamedTextColor.RED)))));
     }
 
-    private ItemStack createNavItem(Material material, String name, List<String> lore) {
+    private ItemStack createNavItem(Material material, Component name, List<Component> lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(lore);
+            meta.displayName(name);
+            meta.lore(lore);
             item.setItemMeta(meta);
         }
         return item;
@@ -344,7 +345,7 @@ public class GuiManager implements Listener {
     }
 
     private boolean isCurrentlyCraftable(Player player, RecipeData recipe) {
-        if (!recipe.isCraftable()) {
+        if (recipe.isCraftable()) {
             return false;
         }
         return inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getResultItems()) > 0;

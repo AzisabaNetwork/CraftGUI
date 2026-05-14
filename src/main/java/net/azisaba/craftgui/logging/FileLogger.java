@@ -4,8 +4,9 @@ import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.RecipeData;
 import net.azisaba.craftgui.util.InventoryUtil;
 import net.azisaba.craftgui.util.MythicItemUtil;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -53,8 +54,8 @@ public class FileLogger {
         try {
             String requiredString = recipe.getRequiredItems().stream()
                     .map(m -> {
-                        String name = ChatColor.stripColor(mythicItemUtil.resolveDisplayName(m, player));
-                        int consumedAmount = m.getAmount() * craftAmount;
+                        String name = PlainTextComponentSerializer.plainText().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(mythicItemUtil.resolveDisplayName(m, player)));
+                        int consumedAmount = m.amount() * craftAmount;
                         long remainingAmount = inventoryUtil.countItems(player,     m);
                         return String.format("%s(x%d)[残り: %d]", name, consumedAmount, remainingAmount);
                     })
@@ -62,8 +63,8 @@ public class FileLogger {
 
             String resultString = recipe.getResultItems().stream()
                     .map(m -> {
-                        String name = ChatColor.stripColor(mythicItemUtil.resolveDisplayName(m, player));
-                        int givenAmount = m.getAmount() * craftAmount;
+                        String name = PlainTextComponentSerializer.plainText().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(mythicItemUtil.resolveDisplayName(m, player)));
+                        int givenAmount = m.amount() * craftAmount;
                         return String.format("%s(x%d)", name, givenAmount);
                     })
                     .collect(Collectors.joining(", "));

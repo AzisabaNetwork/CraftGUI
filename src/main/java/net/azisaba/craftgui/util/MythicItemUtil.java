@@ -7,7 +7,6 @@ import io.lumine.mythic.bukkit.events.MythicReloadedEvent;
 import io.lumine.mythic.core.items.MythicItem;
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.CraftingMaterial;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -77,7 +76,7 @@ public class MythicItemUtil implements Listener {
 
                 String displayName = mythicItem.getDisplayName();
                 if (displayName != null && !displayName.isEmpty()) {
-                    newDisplayNameCache.put(mmid, ChatColor.translateAlternateColorCodes('&', displayName));
+                    newDisplayNameCache.put(mmid, displayName);
                 }
 
                 List<String> lore = extractLore(normalizedItem);
@@ -149,7 +148,7 @@ public class MythicItemUtil implements Listener {
         return getMythicItem(mmid)
                 .map(item -> {
                     String displayName = item.getDisplayName();
-                    return (displayName != null && !displayName.isEmpty()) ? ChatColor.translateAlternateColorCodes('&', displayName) : null;
+                    return (displayName != null && !displayName.isEmpty()) ? displayName : null;
                 })
                 .orElse(mmid != null ? mmid : "不明なMMID");
     }
@@ -169,16 +168,17 @@ public class MythicItemUtil implements Listener {
     }
 
     public String resolveDisplayName(CraftingMaterial material, Player player) {
+        boolean b = material.displayName() != null && !material.displayName().isEmpty();
         if (material.isMythicItem()) {
-            if (material.getDisplayName() != null && !material.getDisplayName().isEmpty()) {
-                return ChatColor.translateAlternateColorCodes('&', material.getDisplayName());
+            if (b) {
+                return material.displayName();
             }
-            return getDisplayNameFromMMID(material.getMmid());
+            return getDisplayNameFromMMID(material.mmid());
         }
-        if (material.getDisplayName() != null && !material.getDisplayName().isEmpty()) {
-            return ChatColor.translateAlternateColorCodes('&', material.getDisplayName());
+        if (b) {
+            return material.displayName();
         }
-        return itemNameUtil.getName(material.getMaterial(), player);
+        return itemNameUtil.getName(material.material(), player);
     }
 
     public CompletableFuture<String> findMMIDAsync(ItemStack item) {
@@ -231,9 +231,7 @@ public class MythicItemUtil implements Listener {
         if (itemStack == null || !itemStack.hasItemMeta() || !itemStack.getItemMeta().hasLore()) {
             return Collections.emptyList();
         }
-        return Collections.unmodifiableList(new ArrayList<>(itemStack.getItemMeta().getLore().stream()
-                .map(line -> ChatColor.translateAlternateColorCodes('&', line))
-                .collect(Collectors.toList())));
+        return List.copyOf(new ArrayList<>(Objects.requireNonNull(itemStack.getItemMeta().getLore())));
     }
 
     private ItemSignature createSignature(ItemStack item) {
@@ -243,8 +241,11 @@ public class MythicItemUtil implements Listener {
 
         boolean hasMeta = item.hasItemMeta();
         ItemMeta meta = hasMeta ? item.getItemMeta() : null;
-        String displayName = (meta != null && meta.hasDisplayName()) ? meta.getDisplayName() : "";
-        List<String> lore = (meta != null && meta.hasLore()) ? new ArrayList<>(meta.getLore()) : Collections.emptyList();
+        String displayName = "";
+        if (meta != null && meta.hasDisplayName()) {
+            displayName = meta.getDisplayName();
+        }
+        List<String> lore = (meta != null && meta.hasLore()) ? new ArrayList<>(Objects.requireNonNull(meta.getLore())) : Collections.emptyList();
         Integer customModelData = (meta != null && meta.hasCustomModelData()) ? meta.getCustomModelData() : null;
         return new ItemSignature(item.getType(), displayName, lore, customModelData);
     }
@@ -253,37 +254,28 @@ public class MythicItemUtil implements Listener {
         return createSignature(stack1).equals(createSignature(stack2));
     }
 
-    private static final class ItemSignature {
-        private final Material material;
-        private final String displayName;
-        private final List<String> lore;
-        private final Integer customModelData;
-
-        private ItemSignature(Material material, String displayName, List<String> lore, Integer customModelData) {
-            this.material = material;
-            this.displayName = displayName;
-            this.lore = Collections.unmodifiableList(new ArrayList<>(lore));
-            this.customModelData = customModelData;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
+    private record ItemSignature(Material material, String displayName, List<String> lore, Integer customModelData) {
+            private ItemSignature(Material material, String displayName, List<String> lore, Integer customModelData) {
+                this.material = material;
+                this.displayName = displayName;
+                this.lore = List.copyOf(lore);
+                this.customModelData = customModelData;
             }
-            if (!(o instanceof ItemSignature)) {
-                return false;
-            }
-            ItemSignature that = (ItemSignature) o;
-            return material == that.material
-                    && Objects.equals(displayName, that.displayName)
-                    && Objects.equals(lore, that.lore)
-                    && Objects.equals(customModelData, that.customModelData);
-        }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(material, displayName, lore, customModelData);
-        }
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) {
+                    return true;
+                }
+                if (!(o instanceof ItemSignature(
+                        Material material1, String name, List<String> lore1, Integer modelData
+                ))) {
+                    return false;
+                }
+                return material == material1
+                        && Objects.equals(displayName, name)
+                        && Objects.equals(lore, lore1)
+                        && Objects.equals(customModelData, modelData);
+            }
     }
 }

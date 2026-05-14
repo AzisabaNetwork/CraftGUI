@@ -8,7 +8,6 @@ import net.azisaba.craftgui.gui.RegisterGuiHolder;
 import net.azisaba.craftgui.util.InventoryUtil;
 import net.azisaba.craftgui.util.MythicItemUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -20,6 +19,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -68,15 +69,15 @@ public class RegisterGuiManager implements Listener {
     private void createAndOpenGui(Player player, int page, int slot, String recipeId, RecipeData existingRecipe, boolean returnToEdit, int editPage) {
         String title = GUI_TITLE_PREFIX + recipeId;
         RegisterGuiHolder holder = new RegisterGuiHolder(page, slot, recipeId);
-        Inventory gui = Bukkit.createInventory(holder, 54, title);
+        Inventory gui = Bukkit.createInventory(holder, 54, Component.text(title));
         holder.setInventory(gui);
 
-        ItemStack separator = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ", null);
+        ItemStack separator = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, Component.text(" "), null);
         for (int s : SEPARATOR_SLOTS) {
             gui.setItem(s, separator);
         }
 
-        ItemStack saveButton = createGuiItem(Material.EMERALD_BLOCK, ChatColor.GREEN + "レシピを保存", Arrays.asList(ChatColor.GRAY + "ページ: " + page, ChatColor.GRAY + "スロット: " + slot, ChatColor.GRAY + "ID: " + recipeId, "", ChatColor.YELLOW + "クリックしてレシピを保存"));
+        ItemStack saveButton = createGuiItem(Material.EMERALD_BLOCK, Component.text("レシピを保存").color(NamedTextColor.GREEN), Arrays.asList(Component.text("ページ: " + page).color(NamedTextColor.GRAY), Component.text("スロット: " + slot).color(NamedTextColor.GRAY), Component.text("ID: " + recipeId).color(NamedTextColor.GRAY), Component.empty(), Component.text("クリックしてレシピを保存").color(NamedTextColor.YELLOW)));
         gui.setItem(SAVE_BUTTON_SLOT, saveButton);
 
         if (existingRecipe != null) {
@@ -101,7 +102,7 @@ public class RegisterGuiManager implements Listener {
                     continue;
                 }
 
-                int amountToPlace = material.getAmount();
+                int amountToPlace = material.amount();
                 int maxStackSize = item.getType().getMaxStackSize();
 
                 while (amountToPlace > 0 && slotIndex < slots.length) {
@@ -119,24 +120,22 @@ public class RegisterGuiManager implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
-        Player player = (Player) event.getWhoClicked();
         UUID uuid = player.getUniqueId();
         if (!openRegisterGuis.containsKey(uuid)) {
             return;
         }
 
         InventoryHolder holder = event.getView().getTopInventory().getHolder();
-        if (!(holder instanceof RegisterGuiHolder)) {
+        if (!(holder instanceof RegisterGuiHolder registerGuiHolder)) {
             return;
         }
 
         RegisterData data = openRegisterGuis.get(uuid);
-        RegisterGuiHolder registerGuiHolder = (RegisterGuiHolder) holder;
-        if (registerGuiHolder.getPage() != data.page || registerGuiHolder.getSlot() != data.slot || !registerGuiHolder.getRecipeId().equals(data.recipeId)) {
+        if (registerGuiHolder.getPage() != data.page() || registerGuiHolder.getSlot() != data.slot() || !registerGuiHolder.getRecipeId().equals(data.recipeId())) {
             return;
         }
 
@@ -157,7 +156,7 @@ public class RegisterGuiManager implements Listener {
     private void handleAsyncSave(Player player, Inventory inv, RegisterData data) {
         UUID uuid = player.getUniqueId();
         processing.add(uuid);
-        player.sendMessage(ChatColor.YELLOW + "レシピを解析しています.. (非同期)");
+        player.sendMessage(Component.text("レシピを解析しています.. (非同期)").color(NamedTextColor.YELLOW));
         List<ItemStack> reqSnapshots = getSnapshots(inv, REQUIRED_SLOTS);
         List<ItemStack> resSnapshots = getSnapshots(inv, RESULT_SLOTS);
 
@@ -174,7 +173,7 @@ public class RegisterGuiManager implements Listener {
             }
         })).exceptionally(ex -> {
             Bukkit.getScheduler().runTask(plugin, () -> {
-                player.sendMessage(ChatColor.RED + "保存中にエラーが発生しました。");
+                player.sendMessage(Component.text("保存中にエラーが発生しました。").color(NamedTextColor.RED));
                 ex.printStackTrace();
                 processing.remove(uuid);
             });
@@ -246,7 +245,7 @@ public class RegisterGuiManager implements Listener {
         if (item.getType() == Material.PLAYER_HEAD) {
             return false;
         }
-        return !meta.hasDisplayName()
+        return !meta.hasCustomName()
                 && !meta.hasLore()
                 && !meta.hasCustomModelData()
                 && !meta.hasEnchants()
@@ -279,14 +278,14 @@ public class RegisterGuiManager implements Listener {
 
     private void saveToConfig(Player player, RegisterData data, List<Map<String, Object>> req, List<Map<String, Object>> res) {
         FileConfiguration config = recipeConfigManager.getConfig();
-        String path = "Items.page" + data.page + "." + data.slot;
-        config.set(path + ".id", data.recipeId);
+        String path = "Items.page" + data.page() + "." + data.slot();
+        config.set(path + ".id", data.recipeId());
         config.set(path + ".enabled", true);
         config.set(path + ".craftable", true);
         config.set(path + ".requiredItems", req);
         config.set(path + ".resultItems", res);
         recipeConfigManager.saveConfig();
-        plugin.sendMessage(player, "&aレシピを保存しました。Hot Updateを適用しました。");
+        plugin.sendMessage(player, Component.text("レシピを保存しました。Hot Updateを適用しました。").color(NamedTextColor.GREEN));
         plugin.performSafeReload(null);
     }
 
@@ -296,19 +295,19 @@ public class RegisterGuiManager implements Listener {
         UUID uuid = player.getUniqueId();
         if (openRegisterGuis.containsKey(uuid) && event.getView().getTopInventory().getHolder() instanceof RegisterGuiHolder) {
             RegisterData data = openRegisterGuis.remove(uuid);
-            if (data != null && data.returnToEdit && !processing.contains(uuid)) {
-                Bukkit.getScheduler().runTask(plugin, () -> plugin.getEditGuiManager().openEditGui(player, data.editPage));
+            if (data != null && data.returnToEdit() && !processing.contains(uuid)) {
+                Bukkit.getScheduler().runTask(plugin, () -> plugin.getEditGuiManager().openEditGui(player, data.editPage()));
             }
         }
     }
 
-    private ItemStack createGuiItem(Material material, String name, List<String> lore) {
+    private ItemStack createGuiItem(Material material, Component name, List<Component> lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(name);
+            meta.displayName(name);
             if (lore != null) {
-                meta.setLore(lore);
+                meta.lore(lore);
             }
             item.setItemMeta(meta);
         }

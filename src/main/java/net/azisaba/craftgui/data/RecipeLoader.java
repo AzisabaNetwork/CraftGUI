@@ -2,22 +2,22 @@ package net.azisaba.craftgui.data;
 
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.util.MythicItemUtil;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.*;
-
 
 public class RecipeLoader {
 
     private final CraftGUI plugin;
     private final MythicItemUtil mythicItemUtil;
     private final List<String> errorDetails = new ArrayList<>();
-    private Map<String, List<String>> loresCache = new HashMap<>();
 
     public RecipeLoader(CraftGUI plugin, MythicItemUtil mythicItemUtil) {
         this.plugin = plugin;
@@ -26,7 +26,6 @@ public class RecipeLoader {
 
     public Map<Integer, Map<Integer, RecipeData>> loadAllItems(FileConfiguration config) {
         errorDetails.clear();
-        this.loresCache = loadLores(config);
         Map<Integer, Map<Integer, RecipeData>> itemsByPage = new LinkedHashMap<>();
         ConfigurationSection itemsSection = config.getConfigurationSection("Items");
 
@@ -84,9 +83,8 @@ public class RecipeLoader {
             boolean craftable = itemSection.getBoolean("craftable", true);
 
             ItemStack guiIcon = null;
-            boolean hasError = false;
-
             List<?> resultItemsList = itemSection.getList("resultItems");
+
             if (resultItemsList != null && !resultItemsList.isEmpty()) {
                 Object firstItemObj = resultItemsList.get(0);
                 if (firstItemObj instanceof Map) {
@@ -104,59 +102,35 @@ public class RecipeLoader {
             }
 
             if (guiIcon == null) {
-                addError(categoryName, slotKey, "'resultItems'が正しく設定されていないため，GUIアイコンを生成できませんでした．");
+                addError(categoryName, slotKey, "GUIアイコンを生成できませんでした．");
                 return null;
-            }
-
-            if (guiIcon.getType() == Material.BARRIER) {
-                hasError = true;
             }
 
             String loreKey = itemSection.getString("lore", "commonLore");
 
             ItemMeta meta = guiIcon.getItemMeta();
-            if (meta != null) {
-                if (itemSection.contains("displayName")) {
-                    meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', itemSection.getString("displayName", "")));
-                }
+            if (meta != null && itemSection.contains("displayName")) {
+                meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(itemSection.getString("displayName", "")));
                 guiIcon.setItemMeta(meta);
             }
-
-            int errorCountBefore = errorDetails.size();
 
             List<CraftingMaterial> resultItems = parseMaterialsList(itemSection.getList("resultItems"), "resultItems", categoryName, slotKey);
             List<CraftingMaterial> requiredItems = parseMaterialsList(itemSection.getList("requiredItems"), "requiredItems", categoryName, slotKey);
 
-            int errorCountAfter = errorDetails.size();
-            if (errorCountAfter > errorCountBefore) {
-                hasError = true;
-            }
-            if (hasError && !itemSection.isSet("craftable")) {
-                craftable = false;
-                plugin.getLogger().info(String.format("[レシピ: %s.%s.%s] 不明なアイテムが含まれているため，'craftable'を自動的に'false'に設定しました: ", categoryName, slotKey, id));
-            }
-
             return new RecipeData(id, enabled, craftable, guiIcon, loreKey, resultItems, requiredItems);
 
         } catch (Exception e) {
-            addError(categoryName, slotKey, "予期せエラーが発生しました: " + e.getMessage());
-            e.printStackTrace();
+            addError(categoryName, slotKey, "解析エラー: " + e.getMessage());
         }
         return null;
     }
 
     private ItemStack createMythicItem(String mmid, String pageKey, String slotKey) {
-        try {
-            ItemStack item = mythicItemUtil.getItemStackFromMMID(mmid);
-            if (item != null && !item.getType().isAir()) {
-                return item;
-            }
-            addError(pageKey, slotKey, "指定されたMythicMobsアイテムが見つかりません: " + mmid);
-            return createErrorItem("不明なMMID: " + mmid);
-        } catch (Exception e) {
-            addError(pageKey, slotKey, "Mythicアイテムの生成中に例外が発生しました: " + e.getMessage());
-            return createErrorItem("不明なMMID: " + mmid);
+        ItemStack item = mythicItemUtil.getItemStackFromMMID(mmid);
+        if (item != null && !item.getType().isAir()) {
+            return item;
         }
+        return createErrorItem("不明なMMID: " + mmid);
     }
 
     private ItemStack createVanillaItem(String materialStr, String pageKey, String slotKey) {
@@ -164,8 +138,7 @@ public class RecipeLoader {
             Material material = Material.valueOf(materialStr.toUpperCase());
             return new ItemStack(material);
         } catch (IllegalArgumentException e) {
-            addError(pageKey, slotKey, "無効なアイテムIDです: " + materialStr);
-            return createErrorItem("無効なアイテムID: " + materialStr);
+            return createErrorItem("無効なID: " + materialStr);
         }
     }
 
@@ -173,7 +146,7 @@ public class RecipeLoader {
         ItemStack item = new ItemStack(Material.BARRIER);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.RED + message);
+            meta.displayName(Component.text(message).color(NamedTextColor.RED));
             item.setItemMeta(meta);
         }
         return item;
@@ -181,104 +154,55 @@ public class RecipeLoader {
 
     private List<CraftingMaterial> parseMaterialsList(List<?> rawList, String listName, String pageKey, String slotKey) {
         List<CraftingMaterial> materials = new ArrayList<>();
-        if (rawList == null || rawList.isEmpty()) {
-            return materials;
-        }
-        for (int i = 0; i < rawList.size(); i++) {
-            Object obj = rawList.get(i);
-            if (!(obj instanceof Map)) {
-                addError(pageKey, slotKey, String.format("%s[%d] の形式が不正です", listName, i));
-                continue;
-            }
-            @SuppressWarnings("unchecked")
-            Map<String, Object> itemMap = (Map<String, Object>) obj;
-            try {
-                materials.add(parseSingleMaterial(itemMap));
-            } catch (IllegalArgumentException | ClassCastException e) {
-                addError(pageKey, slotKey, String.format("%s[%d] の解析中にエラーが発生しました: %s", listName, i, e.getMessage()));
+        if (rawList == null) return materials;
+
+        for (Object obj : rawList) {
+            if (obj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> itemMap = (Map<String, Object>) obj;
+                try {
+                    materials.add(parseSingleMaterial(itemMap));
+                } catch (Exception e) {
+                    addError(pageKey, slotKey, "アイテム解析失敗: " + e.getMessage());
+                }
             }
         }
         return materials;
     }
 
-    private CraftingMaterial parseSingleMaterial(Map<String, Object> map) throws IllegalArgumentException {
+    private CraftingMaterial parseSingleMaterial(Map<String, Object> map) {
         String mmid = (String) map.get("mmid");
         String materialStr = (String) map.get("material");
         Material material = null;
         boolean isMythic = false;
-
         String displayName = (String) map.get("displayName");
-        Map<String, Object> itemStackData = getItemStackData(map);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> itemStackData = (Map<String, Object>) map.get("itemStack");
 
         if (mmid != null && !mmid.trim().isEmpty()) {
             isMythic = true;
-            String fetchedDisplayName = mythicItemUtil.getDisplayNameFromMMID(mmid);
-
-            if (!fetchedDisplayName.equals(mmid)) {
-                displayName = fetchedDisplayName;
-            }
-
         } else if (materialStr != null && !materialStr.trim().isEmpty()) {
-            try {
-                material = Material.valueOf(materialStr.trim().toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("アイテムID'" + materialStr + "'は不明なIDです．");
-            }
-        } else if (itemStackData != null && !itemStackData.isEmpty()) {
-            ItemStack itemStack = deserializeItemStack(itemStackData);
-            if (itemStack == null || itemStack.getType().isAir()) {
-                throw new IllegalArgumentException("'itemStack' からアイテムを復元できませんでした");
-            }
-            material = itemStack.getType();
-            ItemMeta itemMeta = itemStack.getItemMeta();
-            if (displayName == null && itemMeta != null && itemMeta.hasDisplayName()) {
-                displayName = itemMeta.getDisplayName();
-            }
-        } else {
-            isMythic = true;
+            material = Material.valueOf(materialStr.trim().toUpperCase());
+        } else if (itemStackData != null) {
+            ItemStack temp = ItemStack.deserialize(itemStackData);
+            material = temp.getType();
         }
 
-        int amount = (int) map.getOrDefault("amount", 1);
-        if (amount <= 0) {
-            throw new IllegalArgumentException("'amount'は1以上の整数で指定してください．");
-        }
-
+        int amount = ((Number) map.getOrDefault("amount", 1)).intValue();
         @SuppressWarnings("unchecked")
         List<String> lore = (List<String>) map.get("lore");
 
         return new CraftingMaterial(isMythic, mmid, material, amount, displayName, lore, itemStackData);
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> getItemStackData(Map<String, Object> map) {
-        Object rawItemStack = map.get("itemStack");
-        if (!(rawItemStack instanceof Map)) {
-            return null;
-        }
-        return new LinkedHashMap<>((Map<String, Object>) rawItemStack);
-    }
-
-    private ItemStack deserializeItemStack(Map<String, Object> itemStackData) {
-        try {
-            return ItemStack.deserialize(new LinkedHashMap<>(itemStackData));
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     public Map<String, List<String>> loadLores(FileConfiguration config) {
         Map<String, List<String>> lores = new HashMap<>();
         ConfigurationSection loresSection = config.getConfigurationSection("Lores");
-        if (loresSection == null) {
-            plugin.getLogger().warning("config.ymlにLoresセクションがありません．");
-            return lores;
-        }
-        for (String loreKey : loresSection.getKeys(false)) {
-            List<String> coloredLoreLines = new ArrayList<>();
-            for (String line : loresSection.getStringList(loreKey)) {
-                coloredLoreLines.add(ChatColor.translateAlternateColorCodes('&', line));
+        if (loresSection != null) {
+            for (String loreKey : loresSection.getKeys(false)) {
+                lores.put(loreKey, loresSection.getStringList(loreKey));
             }
-            lores.put(loreKey, coloredLoreLines);
         }
         return lores;
     }

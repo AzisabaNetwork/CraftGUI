@@ -18,12 +18,11 @@ public class GuiCloseListener implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getPlayer() instanceof Player) {
+        if (event.getPlayer() instanceof Player player) {
             InventoryHolder holder = event.getView().getTopInventory().getHolder();
             if (!(holder instanceof CraftGuiHolder)) {
                 return;
             }
-            Player player = (Player) event.getPlayer();
             mapUtil.removePlayer(player.getUniqueId());
         }
     }

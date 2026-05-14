@@ -31,7 +31,7 @@ public class RecipeData {
         return enabled;
     }
     public boolean isCraftable() {
-        return craftable;
+        return !craftable;
     }
     public ItemStack getGuiIcon() {
         return guiIcon;

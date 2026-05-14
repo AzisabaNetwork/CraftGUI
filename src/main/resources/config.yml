@@ -11,10 +11,3 @@ configUrl: "URL"
 # CraftGUIのレシピを自動でリロードする間隔（分単位）
 # 0または設定しない場合は無効になります
 auto-reload-interval-minutes: 60
-
-# 言語ファイルのダウンロード先
-jsonUrl: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.15.2/assets/minecraft/lang/"
-# 対応言語
-languages:
-  - "ja_jp"
-  - "en_us"
