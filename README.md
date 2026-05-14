@@ -3,10 +3,18 @@
 CraftGUI is a Minecraft pluign that provides a highly customizeable GUI interface for crafting and item transformation.
 
 This plugin allows server administrators to define craftable items and required materials via config files.
-It also supports MythicMobs items.
+It also supports MythicMobs items, StorageBox, and ItemStash plugins for an enhanced user experience.
 
 # Environment
-This plugin depends on MythicMobs (v4.12.0), so it is compatible with servers that run this plugin version.
+This plugin depends on MythicMobs (v4.12.0), ItemStash, and StorageBox, so it is compatible with servers that run these plugin versions.
+
+## Features
+- Highly customizable crafting recipes via configuration.
+- Support for MythicMobs items as required and result items.
+- ItemStash integration (support for stashing output items when the user inventory is full).
+- StorageBox integration (allows the GUI to take required items from and put resulting items into StorageBox containers).
+- Dynamic GUI features (craftable-only view mode, compact view mode, toggling lore, showing result items, etc.).
+- Auto-reloading of recipes via URL periodically.
 
 ## Commands
 
@@ -39,10 +47,17 @@ Aliases:
 
 ```yaml
 # CraftGUI Configuration
-configVersion: 1.0
+configVersion: 1.1
+
+# Prefix for messages
+prefix: "&7[&aCraftGUI&7] &r"
 
 # URL for reloading configuration from an external file
 configUrl: "URL"
+
+# Auto-reload interval for CraftGUI recipes (in minutes)
+# Set to 0 or leave unset to disable
+auto-reload-interval-minutes: 60
 
 # Language JSON download source
 jsonUrl: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.15.2/assets/minecraft/lang/"
