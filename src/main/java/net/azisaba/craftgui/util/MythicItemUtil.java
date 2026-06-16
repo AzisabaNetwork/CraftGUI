@@ -65,7 +65,13 @@ public class MythicItemUtil implements Listener {
             Collection<MythicItem> allItems = manager.getItems();
             for (MythicItem mythicItem : allItems) {
                 String mmid = mythicItem.getInternalName();
-                ItemStack builtItem = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
+                ItemStack builtItem;
+                try {
+                    builtItem = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Failed to build item for MythicItem: " + mmid + " (" + e.getMessage() + ")");
+                    continue;
+                }
                 if (builtItem == null || builtItem.getType().isAir()) {
                     continue;
                 }
@@ -129,12 +135,17 @@ public class MythicItemUtil implements Listener {
 
         return getMythicItem(mmid)
                 .map(mythicItem -> {
-                    ItemStack item = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
-                    if (item == null) {
+                    try {
+                        ItemStack item = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
+                        if (item == null) {
+                            return null;
+                        }
+                        item.setAmount(1);
+                        return item;
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to build item for MythicItem: " + mmid + " (" + e.getMessage() + ")");
                         return null;
                     }
-                    item.setAmount(1);
-                    return item;
                 })
                 .orElse(null);
     }
@@ -161,8 +172,13 @@ public class MythicItemUtil implements Listener {
 
         return getMythicItem(mmid)
                 .map(mythicItem -> {
-                    ItemStack itemStack = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
-                    return extractLore(itemStack);
+                    try {
+                        ItemStack itemStack = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
+                        return extractLore(itemStack);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to build item for MythicItem: " + mmid + " (" + e.getMessage() + ")");
+                        return Collections.<String>emptyList();
+                    }
                 })
                 .orElse(Collections.emptyList());
     }
@@ -211,9 +227,13 @@ public class MythicItemUtil implements Listener {
             }
 
             for (MythicItem mythicItem : manager.getItems()) {
-                ItemStack mmItem = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
-                if (isSimilar(item, mmItem)) {
-                    return mythicItem.getInternalName();
+                try {
+                    ItemStack mmItem = BukkitAdapter.adapt(mythicItem.generateItemStack(1));
+                    if (isSimilar(item, mmItem)) {
+                        return mythicItem.getInternalName();
+                    }
+                } catch (Exception e) {
+                    // Ignore item generation failure for this specific item
                 }
             }
         } catch (Exception e) {
