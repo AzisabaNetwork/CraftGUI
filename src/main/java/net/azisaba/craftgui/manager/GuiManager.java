@@ -128,7 +128,7 @@ public class GuiManager implements Listener {
     }
 
     private void attemptCraft(Player player, RecipeData recipe, ClickType click, InventoryClickEvent event) {
-        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getResultItems());
+        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredBranches(), recipe.getResultItems());
         if (maxCraftable <= 0) {
             plugin.sendMessage(player, "&cクラフトに必要なアイテムが不足しているか、インベントリに空きがありません。");
             if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
@@ -149,11 +149,14 @@ public class GuiManager implements Listener {
         }
 
         craftAmount = (int) Math.min(craftAmount, maxCraftable);
-        for (CraftingMaterial material : recipe.getRequiredItems()) {
-            inventoryUtil.removeItems(player, material, material.getAmount() * craftAmount);
+        net.azisaba.craftgui.data.RecipeBranch bestBranch = inventoryUtil.getBestBranch(player, recipe.getRequiredBranches(), craftAmount);
+        if (bestBranch != null) {
+            for (CraftingMaterial material : bestBranch.getMaterials()) {
+                inventoryUtil.removeItems(player, material, material.getAmount() * craftAmount);
+            }
         }
         inventoryUtil.giveResultItems(player, recipe.getResultItems(), craftAmount);
-        fileLogger.logCraft(player, recipe, craftAmount);
+        fileLogger.logCraft(player, recipe, bestBranch, craftAmount);
         plugin.sendMessage(player, ChatColor.GREEN + "" + craftAmount + "回変換しました。");
         if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
@@ -347,7 +350,7 @@ public class GuiManager implements Listener {
         if (!recipe.isCraftable()) {
             return false;
         }
-        return inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getResultItems()) > 0;
+        return inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredBranches(), recipe.getResultItems()) > 0;
     }
 
     private int resolvePage(int requestedPage, int maxPage) {

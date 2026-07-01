@@ -60,18 +60,24 @@ public class InventoryUtil {
         return count;
     }
 
-    public long calculateMaxCraftableAmount(Player player, List<CraftingMaterial> requiredItems, List<CraftingMaterial> resultItems) {
-        if (requiredItems.isEmpty()) return 0;
+    public long calculateMaxCraftableAmount(Player player, List<net.azisaba.craftgui.data.RecipeBranch> requiredBranches, List<CraftingMaterial> resultItems) {
+        if (requiredBranches == null || requiredBranches.isEmpty()) return 0;
 
-        long maxCraftableByMaterial = Long.MAX_VALUE;
-        for (CraftingMaterial item : requiredItems) {
-            if (item.getAmount() <= 0) continue;
-            long ownedAmount = countItems(player, item);
-            maxCraftableByMaterial = Math.min(maxCraftableByMaterial, ownedAmount / item.getAmount());
+        long maxCraftableByBranches = 0;
+        for (net.azisaba.craftgui.data.RecipeBranch branch : requiredBranches) {
+            long branchMax = Long.MAX_VALUE;
+            for (CraftingMaterial item : branch.getMaterials()) {
+                if (item.getAmount() <= 0) continue;
+                long ownedAmount = countItems(player, item);
+                branchMax = Math.min(branchMax, ownedAmount / item.getAmount());
+            }
+            maxCraftableByBranches = Math.max(maxCraftableByBranches, branchMax);
         }
 
+        if (maxCraftableByBranches <= 0) return 0;
+
         if (resultItems == null || resultItems.isEmpty() || mapUtil.isStashEnabled(player.getUniqueId())) {
-            return maxCraftableByMaterial;
+            return maxCraftableByBranches;
         }
 
         long maxCraftableByInventory = Long.MAX_VALUE;
@@ -101,7 +107,22 @@ public class InventoryUtil {
             }
             maxCraftableByInventory = Math.min(maxCraftableByInventory, freeSpace / result.getAmount());
         }
-        return Math.min(maxCraftableByMaterial, maxCraftableByInventory);
+        return Math.min(maxCraftableByBranches, maxCraftableByInventory);
+    }
+
+    public net.azisaba.craftgui.data.RecipeBranch getBestBranch(Player player, List<net.azisaba.craftgui.data.RecipeBranch> requiredBranches, int craftAmount) {
+        for (net.azisaba.craftgui.data.RecipeBranch branch : requiredBranches) {
+            long branchMax = Long.MAX_VALUE;
+            for (CraftingMaterial item : branch.getMaterials()) {
+                if (item.getAmount() <= 0) continue;
+                long ownedAmount = countItems(player, item);
+                branchMax = Math.min(branchMax, ownedAmount / item.getAmount());
+            }
+            if (branchMax >= craftAmount) {
+                return branch;
+            }
+        }
+        return requiredBranches.isEmpty() ? null : requiredBranches.get(0);
     }
 
     public void removeItems(Player player, CraftingMaterial material, int amount) {

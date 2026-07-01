@@ -144,7 +144,7 @@ public class CraftGuiCommand implements CommandExecutor, TabCompleter {
     }
 
     private void attemptCraftByCommand(Player player, RecipeData recipe, int craftAmount) {
-        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredItems(), recipe.getRequiredItems());
+        long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredBranches(), recipe.getResultItems());
 
         if (maxCraftable <= 0) {
             plugin.sendMessage(player, "&c変換に必要な素材が不足しています．");
@@ -153,15 +153,21 @@ public class CraftGuiCommand implements CommandExecutor, TabCompleter {
             }
 
             player.sendMessage(ChatColor.GRAY + "------------------------------------");
-            for (CraftingMaterial material : recipe.getRequiredItems()) {
-                long owned = inventoryUtil.countItems(player, material);
-                int required = material.getAmount();
-                String name = mythicItemUtil.resolveDisplayName(material, player);
+            for (int i = 0; i < recipe.getRequiredBranches().size(); i++) {
+                net.azisaba.craftgui.data.RecipeBranch branch = recipe.getRequiredBranches().get(i);
+                if (recipe.getRequiredBranches().size() > 1) {
+                    player.sendMessage(ChatColor.YELLOW + "[パターン " + (i + 1) + "]");
+                }
+                for (CraftingMaterial material : branch.getMaterials()) {
+                    long owned = inventoryUtil.countItems(player, material);
+                    int required = material.getAmount();
+                    String name = mythicItemUtil.resolveDisplayName(material, player);
 
-                if (owned < required) {
-                    player.sendMessage(ChatColor.RED + "✘ " + name + ": " + (required - owned) + "個不足 (所持: " + owned + ")");
-                } else {
-                    player.sendMessage(ChatColor.GREEN + "✓ " + name + ": 変換可能です (所持: " + owned + ")");
+                    if (owned < required) {
+                        player.sendMessage(ChatColor.RED + "✘ " + name + ": " + (required - owned) + "個不足 (所持: " + owned + ")");
+                    } else {
+                        player.sendMessage(ChatColor.GREEN + "✓ " + name + ": 変換可能です (所持: " + owned + ")");
+                    }
                 }
             }
             player.sendMessage(ChatColor.GRAY + "-----------------------------------");
@@ -171,22 +177,27 @@ public class CraftGuiCommand implements CommandExecutor, TabCompleter {
         int finalCraftAmount = (int) Math.min(craftAmount, maxCraftable);
         if (finalCraftAmount <= 0) return;
 
-        for (CraftingMaterial material : recipe.getRequiredItems()) {
-            inventoryUtil.removeItems(player, material, material.getAmount() * finalCraftAmount);
+        net.azisaba.craftgui.data.RecipeBranch bestBranch = inventoryUtil.getBestBranch(player, recipe.getRequiredBranches(), finalCraftAmount);
+        if (bestBranch != null) {
+            for (CraftingMaterial material : bestBranch.getMaterials()) {
+                inventoryUtil.removeItems(player, material, material.getAmount() * finalCraftAmount);
+            }
         }
         inventoryUtil.giveResultItems(player, recipe.getResultItems(), finalCraftAmount);
 
-        fileLogger.logCraft(player, recipe, finalCraftAmount);
+        fileLogger.logCraft(player, recipe, bestBranch, finalCraftAmount);
         plugin.sendMessage(player,  "&a" + finalCraftAmount + "回変換しました");
         if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
         }
 
         player.sendMessage(ChatColor.GRAY + "------------------------------------");
-        for (CraftingMaterial material : recipe.getRequiredItems()) {
-            long remaining = inventoryUtil.countItems(player, material);
-            String name = mythicItemUtil.resolveDisplayName(material, player);
-            player.sendMessage(ChatColor.GRAY + " - " + name + ": 残り" + remaining + "個");
+        if (bestBranch != null) {
+            for (CraftingMaterial material : bestBranch.getMaterials()) {
+                long remaining = inventoryUtil.countItems(player, material);
+                String name = mythicItemUtil.resolveDisplayName(material, player);
+                player.sendMessage(ChatColor.GRAY + " - " + name + ": 残り" + remaining + "個");
+            }
         }
         player.sendMessage(ChatColor.GRAY + "------------------------------------");
     }

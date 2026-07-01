@@ -44,10 +44,9 @@ public class RegisterGuiManager implements Listener {
     private final Map<UUID, RegisterData> openRegisterGuis = new HashMap<>();
     private final Set<UUID> processing = Collections.synchronizedSet(new HashSet<>());
 
-    private static final int[] REQUIRED_SLOTS = IntStream.range(0, 27).toArray();
-    private static final int[] SEPARATOR_SLOTS = IntStream.range(27, 36).toArray();
-    private static final int[] RESULT_SLOTS = IntStream.range(36, 54).toArray();
-    private static final int SAVE_BUTTON_SLOT = 31;
+    private static final int[] REQUIRED_SLOTS = IntStream.range(0, 45).toArray();
+    private static final int[] RESULT_SLOTS = IntStream.range(45, 53).toArray();
+    private static final int SAVE_BUTTON_SLOT = 53;
     private static final String GUI_TITLE_PREFIX = "CraftGUI Register: ";
 
     public RegisterGuiManager(CraftGUI plugin, MythicItemUtil mythicItemUtil, RecipeConfigManager recipeConfigManager, InventoryUtil inventoryUtil) {
@@ -71,21 +70,26 @@ public class RegisterGuiManager implements Listener {
         Inventory gui = Bukkit.createInventory(holder, 54, title);
         holder.setInventory(gui);
 
-        ItemStack separator = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, " ", null);
-        for (int s : SEPARATOR_SLOTS) {
-            gui.setItem(s, separator);
-        }
-
         ItemStack saveButton = createGuiItem(Material.EMERALD_BLOCK, ChatColor.GREEN + "レシピを保存", Arrays.asList(ChatColor.GRAY + "ページ: " + page, ChatColor.GRAY + "スロット: " + slot, ChatColor.GRAY + "ID: " + recipeId, "", ChatColor.YELLOW + "クリックしてレシピを保存"));
         gui.setItem(SAVE_BUTTON_SLOT, saveButton);
 
         if (existingRecipe != null) {
-            placeItemsInGrid(gui, existingRecipe.getRequiredItems(), REQUIRED_SLOTS);
+            placeBranchesInGrid(gui, existingRecipe.getRequiredBranches());
             placeItemsInGrid(gui, existingRecipe.getResultItems(), RESULT_SLOTS);
         }
 
         player.openInventory(gui);
         openRegisterGuis.put(player.getUniqueId(), new RegisterData(page, slot, recipeId, returnToEdit, editPage));
+    }
+
+    private void placeBranchesInGrid(Inventory gui, List<net.azisaba.craftgui.data.RecipeBranch> branches) {
+        if (branches == null || branches.isEmpty() || inventoryUtil == null) {
+            return;
+        }
+        for (int row = 0; row < Math.min(branches.size(), 5); row++) {
+            int[] rowSlots = IntStream.range(row * 9, row * 9 + 9).toArray();
+            placeItemsInGrid(gui, branches.get(row).getMaterials(), rowSlots);
+        }
     }
 
     private void placeItemsInGrid(Inventory gui, List<CraftingMaterial> materials, int[] slots) {
@@ -149,8 +153,6 @@ public class RegisterGuiManager implements Listener {
             }
             handleAsyncSave(player, event.getInventory(), data);
             player.closeInventory();
-        } else if (Arrays.stream(SEPARATOR_SLOTS).anyMatch(s -> s == rawSlot)) {
-            event.setCancelled(true);
         }
     }
 
@@ -158,13 +160,28 @@ public class RegisterGuiManager implements Listener {
         UUID uuid = player.getUniqueId();
         processing.add(uuid);
         player.sendMessage(ChatColor.YELLOW + "レシピを解析しています.. (非同期)");
-        List<ItemStack> reqSnapshots = getSnapshots(inv, REQUIRED_SLOTS);
-        List<ItemStack> resSnapshots = getSnapshots(inv, RESULT_SLOTS);
 
         CompletableFuture.supplyAsync(() -> {
-            List<Map<String, Object>> reqConfig = analyzeItems(reqSnapshots);
+            List<Map<String, Object>> reqConfig = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                List<ItemStack> rowItems = getSnapshots(inv, IntStream.range(i * 9, i * 9 + 9).toArray());
+                if (!rowItems.isEmpty()) {
+                    Map<String, Object> branchMap = new LinkedHashMap<>();
+                    branchMap.put("branch", analyzeItems(rowItems));
+                    reqConfig.add(branchMap);
+                }
+            }
+            
+            Object finalReqConfig = reqConfig;
+            if (reqConfig.size() == 1) {
+                finalReqConfig = reqConfig.get(0).get("branch");
+            } else if (reqConfig.isEmpty()) {
+                finalReqConfig = new ArrayList<>();
+            }
+
+            List<ItemStack> resSnapshots = getSnapshots(inv, RESULT_SLOTS);
             List<Map<String, Object>> resConfig = analyzeItems(resSnapshots);
-            return new AbstractMap.SimpleEntry<>(reqConfig, resConfig);
+            return new AbstractMap.SimpleEntry<>(finalReqConfig, resConfig);
         }).thenAccept(pair -> Bukkit.getScheduler().runTask(plugin, () -> {
             try {
                 saveToConfig(player, data, pair.getKey(), pair.getValue());
@@ -277,7 +294,7 @@ public class RegisterGuiManager implements Listener {
         return list;
     }
 
-    private void saveToConfig(Player player, RegisterData data, List<Map<String, Object>> req, List<Map<String, Object>> res) {
+    private void saveToConfig(Player player, RegisterData data, Object req, List<Map<String, Object>> res) {
         FileConfiguration config = recipeConfigManager.getConfig();
         String path = "Items.page" + data.page + "." + data.slot;
         config.set(path + ".id", data.recipeId);

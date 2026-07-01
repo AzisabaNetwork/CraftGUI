@@ -57,8 +57,8 @@ public class GuiUtil {
         finalLore.addAll(loadedLores.getOrDefault(loreKey, Collections.emptyList()));
         finalLore.add("");
 
-        long limitByMaterial = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredItems(), Collections.emptyList());
-        long limitFinal = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredItems(), recipeData.getResultItems());
+        long limitByMaterial = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredBranches(), Collections.emptyList());
+        long limitFinal = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredBranches(), recipeData.getResultItems());
 
         if (limitFinal > 0) {
             finalLore.add(ChatColor.GREEN + "✓ 変換可能です");
@@ -75,20 +75,16 @@ public class GuiUtil {
         finalLore.add("");
         finalLore.add(ChatColor.GRAY + "変換に必要なアイテム: ");
 
-        for (CraftingMaterial required : recipeData.getRequiredItems()) {
-            long ownedAmount = inventoryUtil.countItems(player, required);
-            String checkMark = ownedAmount >= required.getAmount() ? ChatColor.GREEN + "✓ " : ChatColor.RED + "✘ ";
-            String displayName = mythicItemUtil.resolveDisplayName(required, player);
-            String countMessage = createCountMessage(ownedAmount, required.getAmount());
-
-            finalLore.add(checkMark + ChatColor.WHITE + displayName + ChatColor.GRAY + " x" + required.getAmount() + countMessage);
-
-            if (loreOn && required.isMythicItem()) {
-                List<String> requiredItemLore = mythicItemUtil.getLoreFromMMID(required.getMmid());
-                if (requiredItemLore != null && !requiredItemLore.isEmpty()) {
-                    for (String loreLine : requiredItemLore) {
-                        finalLore.add(ChatColor.DARK_GRAY + "  » " + ChatColor.RESET + loreLine);
-                    }
+        List<net.azisaba.craftgui.data.RecipeBranch> branches = recipeData.getRequiredBranches();
+        if (branches.size() == 1) {
+            for (CraftingMaterial required : branches.get(0).getMaterials()) {
+                addRequiredMaterialToLore(finalLore, required, player, loreOn);
+            }
+        } else {
+            for (int i = 0; i < branches.size(); i++) {
+                finalLore.add(ChatColor.YELLOW + "[パターン " + (i + 1) + "]");
+                for (CraftingMaterial required : branches.get(i).getMaterials()) {
+                    addRequiredMaterialToLore(finalLore, required, player, loreOn);
                 }
             }
         }
@@ -126,6 +122,24 @@ public class GuiUtil {
             return ChatColor.YELLOW + " (" + needed + "個不足)";
         } else {
             return ChatColor.RED + " (所持していません)";
+        }
+    }
+
+    private void addRequiredMaterialToLore(List<String> finalLore, CraftingMaterial required, Player player, boolean loreOn) {
+        long ownedAmount = inventoryUtil.countItems(player, required);
+        String checkMark = ownedAmount >= required.getAmount() ? ChatColor.GREEN + "✓ " : ChatColor.RED + "✘ ";
+        String displayName = mythicItemUtil.resolveDisplayName(required, player);
+        String countMessage = createCountMessage(ownedAmount, required.getAmount());
+
+        finalLore.add(checkMark + ChatColor.WHITE + displayName + ChatColor.GRAY + " x" + required.getAmount() + countMessage);
+
+        if (loreOn && required.isMythicItem()) {
+            List<String> requiredItemLore = mythicItemUtil.getLoreFromMMID(required.getMmid());
+            if (requiredItemLore != null && !requiredItemLore.isEmpty()) {
+                for (String loreLine : requiredItemLore) {
+                    finalLore.add(ChatColor.DARK_GRAY + "  » " + ChatColor.RESET + loreLine);
+                }
+            }
         }
     }
 }

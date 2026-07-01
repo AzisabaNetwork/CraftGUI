@@ -12,16 +12,16 @@ public class RecipeData {
     private final ItemStack guiIcon;
     private final String loreKey;
     private final List<CraftingMaterial> resultItems;
-    private final List<CraftingMaterial> requiredItems;
+    private final List<RecipeBranch> requiredBranches;
 
-    public RecipeData(String id, boolean enabled, boolean craftable, ItemStack guiIcon, String loreKey, List<CraftingMaterial> resultItems, List<CraftingMaterial> requiredItems) {
+    public RecipeData(String id, boolean enabled, boolean craftable, ItemStack guiIcon, String loreKey, List<CraftingMaterial> resultItems, List<RecipeBranch> requiredBranches) {
         this.id = id;
         this.enabled = enabled;
         this.craftable = craftable;
         this.guiIcon = guiIcon;
         this.loreKey = loreKey;
         this.resultItems = resultItems;
-        this.requiredItems = requiredItems;
+        this.requiredBranches = requiredBranches;
     }
 
     public String getId() {
@@ -42,7 +42,7 @@ public class RecipeData {
     public List<CraftingMaterial> getResultItems() {
         return resultItems;
     }
-    public List<CraftingMaterial> getRequiredItems() {
-        return requiredItems;
+    public List<RecipeBranch> getRequiredBranches() {
+        return requiredBranches;
     }
 }

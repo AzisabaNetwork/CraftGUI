@@ -49,16 +49,19 @@ public class FileLogger {
         }
     }
 
-    public void logCraft(Player player, RecipeData recipe, int craftAmount) {
+    public void logCraft(Player player, RecipeData recipe, net.azisaba.craftgui.data.RecipeBranch consumedBranch, int craftAmount) {
         try {
-            String requiredString = recipe.getRequiredItems().stream()
-                    .map(m -> {
-                        String name = ChatColor.stripColor(mythicItemUtil.resolveDisplayName(m, player));
-                        int consumedAmount = m.getAmount() * craftAmount;
-                        long remainingAmount = inventoryUtil.countItems(player,     m);
-                        return String.format("%s(x%d)[残り: %d]", name, consumedAmount, remainingAmount);
-                    })
-                    .collect(Collectors.joining(", "));
+            String requiredString = "なし";
+            if (consumedBranch != null) {
+                requiredString = consumedBranch.getMaterials().stream()
+                        .map(m -> {
+                            String name = ChatColor.stripColor(mythicItemUtil.resolveDisplayName(m, player));
+                            int consumedAmount = m.getAmount() * craftAmount;
+                            long remainingAmount = inventoryUtil.countItems(player, m);
+                            return String.format("%s(x%d)[残り: %d]", name, consumedAmount, remainingAmount);
+                        })
+                        .collect(Collectors.joining(", "));
+            }
 
             String resultString = recipe.getResultItems().stream()
                     .map(m -> {

@@ -128,7 +128,7 @@ public class RecipeLoader {
             int errorCountBefore = errorDetails.size();
 
             List<CraftingMaterial> resultItems = parseMaterialsList(itemSection.getList("resultItems"), "resultItems", categoryName, slotKey);
-            List<CraftingMaterial> requiredItems = parseMaterialsList(itemSection.getList("requiredItems"), "requiredItems", categoryName, slotKey);
+            List<RecipeBranch> requiredBranches = parseRequiredBranches(itemSection.getList("requiredItems"), categoryName, slotKey);
 
             int errorCountAfter = errorDetails.size();
             if (errorCountAfter > errorCountBefore) {
@@ -139,7 +139,7 @@ public class RecipeLoader {
                 plugin.getLogger().info(String.format("[レシピ: %s.%s.%s] 不明なアイテムが含まれているため，'craftable'を自動的に'false'に設定しました: ", categoryName, slotKey, id));
             }
 
-            return new RecipeData(id, enabled, craftable, guiIcon, loreKey, resultItems, requiredItems);
+            return new RecipeData(id, enabled, craftable, guiIcon, loreKey, resultItems, requiredBranches);
 
         } catch (Exception e) {
             addError(categoryName, slotKey, "予期せエラーが発生しました: " + e.getMessage());
@@ -176,6 +176,47 @@ public class RecipeLoader {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    private List<RecipeBranch> parseRequiredBranches(List<?> rawList, String pageKey, String slotKey) {
+        List<RecipeBranch> branches = new ArrayList<>();
+        if (rawList == null || rawList.isEmpty()) {
+            return branches;
+        }
+
+        boolean hasBranches = false;
+        for (Object obj : rawList) {
+            if (obj instanceof Map && ((Map<?, ?>) obj).containsKey("branch")) {
+                hasBranches = true;
+                break;
+            }
+            if (obj instanceof List) {
+                hasBranches = true;
+                break;
+            }
+        }
+
+        if (hasBranches) {
+            for (int i = 0; i < rawList.size(); i++) {
+                Object obj = rawList.get(i);
+                if (obj instanceof Map && ((Map<?, ?>) obj).containsKey("branch")) {
+                    List<?> branchList = (List<?>) ((Map<?, ?>) obj).get("branch");
+                    List<CraftingMaterial> materials = parseMaterialsList(branchList, "requiredItems[" + i + "].branch", pageKey, slotKey);
+                    if (!materials.isEmpty()) branches.add(new RecipeBranch(materials));
+                } else if (obj instanceof List) {
+                    List<CraftingMaterial> materials = parseMaterialsList((List<?>) obj, "requiredItems[" + i + "].branch", pageKey, slotKey);
+                    if (!materials.isEmpty()) branches.add(new RecipeBranch(materials));
+                } else {
+                    addError(pageKey, slotKey, String.format("requiredItems[%d] は分岐として正しく設定されていません", i));
+                }
+            }
+        } else {
+            List<CraftingMaterial> materials = parseMaterialsList(rawList, "requiredItems", pageKey, slotKey);
+            if (!materials.isEmpty()) {
+                branches.add(new RecipeBranch(materials));
+            }
+        }
+        return branches;
     }
 
     private List<CraftingMaterial> parseMaterialsList(List<?> rawList, String listName, String pageKey, String slotKey) {
