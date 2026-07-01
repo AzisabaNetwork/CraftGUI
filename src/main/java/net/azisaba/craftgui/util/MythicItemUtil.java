@@ -7,10 +7,8 @@ import io.lumine.xikage.mythicmobs.items.ItemManager;
 import io.lumine.xikage.mythicmobs.items.MythicItem;
 import net.azisaba.craftgui.CraftGUI;
 import net.azisaba.craftgui.data.CraftingMaterial;
-import net.minecraft.server.v1_15_R1.NBTTagCompound;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -107,15 +105,11 @@ public class MythicItemUtil implements Listener {
 
     public String getMMIDFromNBT(ItemStack item) {
         try {
-            net.minecraft.server.v1_15_R1.ItemStack nmsItem = CraftItemStack.asNMSCopy(item);
-            if (!nmsItem.hasTag()) {
+            io.lumine.xikage.mythicmobs.util.jnbt.CompoundTag tag = MythicMobs.inst().getVolatileCodeHandler().getItemHandler().getNBTData(item);
+            if (tag == null || !tag.getValue().containsKey("MYTHIC_TYPE")) {
                 return null;
             }
-            NBTTagCompound tag = nmsItem.getTag();
-            if (tag == null || !tag.hasKey("MYTHIC_TYPE")) {
-                return null;
-            }
-            return tag.getString("MYTHIC_TYPE");
+            return ((io.lumine.xikage.mythicmobs.util.jnbt.StringTag) tag.getValue().get("MYTHIC_TYPE")).getValue();
         } catch (Exception e) {
             return null;
         }
