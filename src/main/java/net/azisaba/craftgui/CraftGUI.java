@@ -1,5 +1,7 @@
 package net.azisaba.craftgui;
 
+import net.azisaba.craftgui.api.CraftGUIAPI;
+import net.azisaba.craftgui.api.CraftGUIAPIImpl;
 import net.azisaba.craftgui.command.CraftGuiCommand;
 import net.azisaba.craftgui.data.PlayerDataManager;
 import net.azisaba.craftgui.data.RecipeData;
@@ -45,11 +47,19 @@ public final class CraftGUI extends JavaPlugin {
     private RecipeLoader recipeLoader;
     private Map<String, RecipeData> recipesById = new HashMap<>();
     private PlayerDataManager playerDataManager;
+    private CraftGUIAPI api;
+
+    private static CraftGUI instance;
+
+    public static CraftGUI getInstance() {
+        return instance;
+    }
 
     private BukkitTask autoReloadTask;
 
     @Override
     public void onEnable() {
+        instance = this;
         startup();
         getLogger().info("CraftGUI has been enabled.");
     }
@@ -106,6 +116,7 @@ public final class CraftGUI extends JavaPlugin {
         this.guiManager = new GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems, mythicItemUtil);
         this.registerGuiManager = new RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil);
         this.editGuiManager = new EditGuiManager(this, recipeConfigManager, registerGuiManager);
+        this.api = new CraftGUIAPIImpl(mapUtil);
 
         setupCommands();
 
@@ -305,5 +316,9 @@ public final class CraftGUI extends JavaPlugin {
     }
     public EditGuiManager getEditGuiManager() {
         return editGuiManager;
+    }
+
+    public CraftGUIAPI getAPI() {
+        return api;
     }
 }
