@@ -44,13 +44,38 @@ public class CraftGUIAPIImpl implements CraftGUIAPI {
         }
 
         @Override
+        public void setSoundEnabled(boolean enabled) {
+            mapUtil.setSoundToggleState(uuid, enabled);
+        }
+
+        @Override
         public boolean isShowResultItems() {
             return mapUtil.isShowResultItems(uuid);
         }
 
         @Override
+        public void setShowResultItems(boolean enabled) {
+            mapUtil.setShowResultItems(uuid, enabled);
+        }
+
+        @Override
         public boolean isCraftableOnly() {
             return mapUtil.isCraftableOnlyEnabled(uuid);
+        }
+
+        @Override
+        public void setCraftableOnly(boolean enabled) {
+            mapUtil.setCraftableOnlyState(uuid, enabled);
+        }
+
+        @Override
+        public boolean isStashEnabled() {
+            return mapUtil.isStashEnabled(uuid);
+        }
+
+        @Override
+        public void setStashEnabled(boolean enabled) {
+            mapUtil.setStashEnabled(uuid, enabled);
         }
     }
 }
