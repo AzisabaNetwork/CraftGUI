@@ -1,5 +1,6 @@
 plugins {
     java
+    `maven-publish`
     id("com.gradleup.shadow") version "8.3.0"
 }
 
@@ -52,5 +53,13 @@ tasks.processResources {
     filteringCharset = "UTF-8"
     filesMatching("plugin.yml") {
         expand(props)
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+        }
     }
 }
