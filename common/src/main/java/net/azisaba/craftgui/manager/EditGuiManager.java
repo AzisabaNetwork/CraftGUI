@@ -1,0 +1,268 @@
+package net.azisaba.craftgui.manager;
+
+import net.azisaba.craftgui.CraftGUI;
+import net.azisaba.craftgui.data.RecipeData;
+import net.azisaba.craftgui.data.RecipeInfo;
+import net.azisaba.craftgui.gui.EditGuiHolder;
+import net.azisaba.craftgui.platform.PlatformAdapter;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+public class EditGuiManager implements Listener {
+
+    private final CraftGUI plugin;
+    private final RecipeConfigManager recipeConfigManager;
+    private final RegisterGuiManager registerGuiManager;
+    private final PlatformAdapter platformAdapter;
+
+    private final Map<UUID, Integer> openEditGuis = new HashMap<>();
+    private final Map<UUID, List<RecipeInfo>> playerEditList = new HashMap<>();
+    private final Set<UUID> isNavigating = new HashSet<>();
+
+    public EditGuiManager(CraftGUI plugin, RecipeConfigManager recipeConfigManager, RegisterGuiManager registerGuiManager, PlatformAdapter platformAdapter) {
+        this.plugin = plugin;
+        this.recipeConfigManager = recipeConfigManager;
+        this.registerGuiManager = registerGuiManager;
+        this.platformAdapter = platformAdapter;
+    }
+
+    public void openEditGui(Player player, int page) {
+        List<RecipeInfo> allRecipes = loadAllRecipeInfo();
+        if (allRecipes.isEmpty()) {
+            plugin.sendMessage(player, ChatColor.RED + "編集可能なレシピがrecipes.ymlに見つかりません。");
+            return;
+        }
+
+        playerEditList.put(player.getUniqueId(), allRecipes);
+        openEditGuiInternal(player, page, allRecipes);
+    }
+
+    private void openEditGuiInternal(Player player, int page, List<RecipeInfo> allRecipes) {
+        String title = "CraftGUI Edit - Page " + page;
+        EditGuiHolder holder = new EditGuiHolder(page);
+        Inventory gui = Bukkit.createInventory(holder, 54, title);
+        holder.setInventory(gui);
+
+        int itemsPerPage = 45;
+        int startIndex = (page - 1) * itemsPerPage;
+        int maxPage = (int) Math.ceil((double) allRecipes.size() / itemsPerPage);
+        if (maxPage == 0) {
+            maxPage = 1;
+        }
+
+        if (startIndex >= allRecipes.size() && page > 1) {
+            openEditGuiInternal(player, maxPage, allRecipes);
+            return;
+        }
+
+        for (int i = 0; i < itemsPerPage; i++) {
+            int recipeIndex = startIndex + i;
+            if (recipeIndex >= allRecipes.size()) {
+                break;
+            }
+
+            RecipeInfo info = allRecipes.get(recipeIndex);
+            RecipeData recipeData = plugin.getRecipeById(info.id);
+
+            ItemStack item;
+            if (recipeData != null && recipeData.getGuiIcon() != null) {
+                item = recipeData.getGuiIcon().clone();
+            } else {
+                item = new ItemStack(Material.BARRIER);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName(ChatColor.RED + "[ロードエラー or 無効]");
+                    item.setItemMeta(meta);
+                }
+            }
+
+            ItemMeta meta = item.getItemMeta();
+            if (meta == null) {
+                meta = Bukkit.getItemFactory().getItemMeta(item.getType());
+            }
+
+            if (meta != null) {
+                meta.setDisplayName(ChatColor.YELLOW + "[編集] " + ChatColor.RESET + (meta.hasDisplayName() ? meta.getDisplayName() : info.id));
+                List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+                lore.add("");
+                lore.add(ChatColor.GRAY + "ID: " + info.id);
+                lore.add(ChatColor.GRAY + "場所: page" + info.page + "." + info.slot);
+                if (!info.isEnabled) {
+                    lore.add(ChatColor.RED + "enabled: false");
+                }
+                if (!info.isCraftable) {
+                    lore.add(ChatColor.RED + "craftable: false");
+                }
+                lore.add(ChatColor.GREEN + "クリックしてこのレシピを編集");
+                meta.setLore(lore);
+                item.setItemMeta(meta);
+            }
+
+            gui.setItem(i, item);
+        }
+
+        if (page > 1) {
+            gui.setItem(45, createNavItem(Material.ARROW, ChatColor.YELLOW + "前のページへ"));
+        }
+        if (page < maxPage) {
+            gui.setItem(53, createNavItem(Material.ARROW, ChatColor.GREEN + "次のページへ"));
+        }
+        gui.setItem(49, createNavItem(Material.BARRIER, ChatColor.RED + "閉じる"));
+
+        isNavigating.add(player.getUniqueId());
+        player.openInventory(gui);
+        openEditGuis.put(player.getUniqueId(), page);
+        playerEditList.put(player.getUniqueId(), allRecipes);
+        Bukkit.getScheduler().runTask(plugin, () -> isNavigating.remove(player.getUniqueId()));
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        Inventory topInventory = platformAdapter.getTopInventory(event.getView());
+        if (topInventory == null) return;
+        InventoryHolder holder = topInventory.getHolder();
+        if (!(holder instanceof EditGuiHolder)) {
+            return;
+        }
+
+        event.setCancelled(true);
+        Player player = (Player) event.getWhoClicked();
+        UUID uuid = player.getUniqueId();
+
+        if (isNavigating.contains(uuid) || !openEditGuis.containsKey(uuid)) {
+            return;
+        }
+
+        int slot = event.getRawSlot();
+        int currentPage = openEditGuis.get(uuid);
+        List<RecipeInfo> allRecipes = playerEditList.get(uuid);
+        if (allRecipes == null) {
+            player.closeInventory();
+            plugin.sendMessage(player, "&cセッションが切れました。もう一度/craftgui editを実行してください。");
+            return;
+        }
+
+        if (slot == 45 && currentPage > 1) {
+            openEditGuiInternal(player, currentPage - 1, allRecipes);
+            return;
+        }
+        if (slot == 53) {
+            int maxPage = (int) Math.ceil((double) allRecipes.size() / 45.0);
+            if (currentPage < maxPage) {
+                openEditGuiInternal(player, currentPage + 1, allRecipes);
+            }
+            return;
+        }
+        if (slot == 49) {
+            player.closeInventory();
+            return;
+        }
+
+        if (slot >= 0 && slot < 45) {
+            int recipeIndex = (currentPage - 1) * 45 + slot;
+            if (recipeIndex >= 0 && recipeIndex < allRecipes.size()) {
+                RecipeInfo info = allRecipes.get(recipeIndex);
+                RecipeData recipeData = plugin.getRecipeById(info.id);
+
+                if (recipeData == null) {
+                    plugin.sendMessage(player, ChatColor.RED + "エラー: このレシピは現在メモリにロードされていません。");
+                    plugin.sendMessage(player, ChatColor.GRAY + "編集するには、一度正常な状態に戻してから再度試してください。");
+                    return;
+                }
+
+                player.closeInventory();
+                registerGuiManager.createAndOpenGuiFromEdit(player, info.page, info.slot, info.id, recipeData, currentPage);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        Inventory topInventory = platformAdapter.getTopInventory(event.getView());
+        if (topInventory == null || !(topInventory.getHolder() instanceof EditGuiHolder)) {
+            return;
+        }
+
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (isNavigating.contains(uuid)) {
+            return;
+        }
+        openEditGuis.remove(uuid);
+        playerEditList.remove(uuid);
+    }
+
+    private List<RecipeInfo> loadAllRecipeInfo() {
+        List<RecipeInfo> list = new ArrayList<>();
+        FileConfiguration config = recipeConfigManager.getConfig();
+        ConfigurationSection itemsSection = config.getConfigurationSection("Items");
+        if (itemsSection == null) {
+            return list;
+        }
+
+        for (String pageKey : itemsSection.getKeys(false)) {
+            int page = safeParseInt(pageKey.substring(4));
+            if (page <= 0) {
+                continue;
+            }
+            ConfigurationSection pageSection = itemsSection.getConfigurationSection(pageKey);
+            if (pageSection == null) {
+                continue;
+            }
+
+            for (String slotKey : pageSection.getKeys(false)) {
+                int slot = safeParseInt(slotKey);
+                if (slot < 0) {
+                    continue;
+                }
+
+                String id = pageSection.getString(slotKey + ".id");
+                if (id != null && !id.isEmpty()) {
+                    boolean enabled = pageSection.getBoolean(slotKey + ".enabled", true);
+                    boolean craftable = pageSection.getBoolean(slotKey + ".craftable", true);
+                    list.add(new RecipeInfo(id, page, slot, enabled, craftable));
+                }
+            }
+        }
+        list.sort(Comparator.comparing(info -> info.id));
+        return list;
+    }
+
+    private int safeParseInt(String s) {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private ItemStack createNavItem(Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+}
