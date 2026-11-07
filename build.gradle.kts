@@ -1,11 +1,11 @@
 plugins {
-    java
-    `maven-publish`
     id("com.gradleup.shadow") version "8.3.0" apply false
 }
 
-group = "net.azisaba"
-version = "1.2.0"
+allprojects {
+    group = "net.azisaba"
+    version = "1.2.0"
+}
 
 subprojects {
     apply(plugin = "java")
@@ -28,7 +28,7 @@ subprojects {
     }
 
     val targetJavaVersion = 8
-    java {
+    configure<JavaPluginExtension> {
         val javaVersion = JavaVersion.toVersion(targetJavaVersion)
         sourceCompatibility = javaVersion
         targetCompatibility = javaVersion
