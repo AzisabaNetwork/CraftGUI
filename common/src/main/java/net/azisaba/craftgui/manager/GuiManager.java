@@ -100,6 +100,7 @@ public class GuiManager implements Listener {
         if (!(holder instanceof CraftGuiHolder)) {
             return;
         }
+        int currentPage = ((CraftGuiHolder) holder).getPage();
 
         event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
@@ -109,11 +110,10 @@ public class GuiManager implements Listener {
         }
 
         if (slot >= 45 && slot < 54) {
-            handleNavigationAndSettings(player, event);
+            handleNavigationAndSettings(player, event, currentPage);
             return;
         }
 
-        int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
         boolean isCompactView = isCompactLayout(player);
         List<Map<Integer, RecipeData>> visiblePages = getVisiblePages(player, isCompactView, null);
         int resolvedPage = resolvePage(currentPage, visiblePages.size());
@@ -173,9 +173,8 @@ public class GuiManager implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> openCraftGUI(player, currentPage));
     }
 
-    private void handleNavigationAndSettings(Player player, InventoryClickEvent event) {
+    private void handleNavigationAndSettings(Player player, InventoryClickEvent event, int currentPage) {
         int slot = event.getRawSlot();
-        int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
 
         if (slot == 49) {
             player.closeInventory();
