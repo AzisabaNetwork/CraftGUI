@@ -67,8 +67,9 @@ public class GuiManager implements Listener {
     }
 
     public void openCraftGUI(Player player, int page) {
+        InventoryUtil.InventorySnapshot snapshot = inventoryUtil.createSnapshot(player);
         boolean isCompactView = isCompactLayout(player);
-        List<Map<Integer, RecipeData>> visiblePages = getVisiblePages(player, isCompactView);
+        List<Map<Integer, RecipeData>> visiblePages = getVisiblePages(player, isCompactView, snapshot);
         int resolvedPage = resolvePage(page, visiblePages.size());
 
         String title = "CraftGUI - " + (isCompactView ? "All Items (Page " + resolvedPage + ")" : "Page " + resolvedPage);
@@ -78,7 +79,7 @@ public class GuiManager implements Listener {
 
         for (Map.Entry<Integer, RecipeData> entry : visiblePages.get(resolvedPage - 1).entrySet()) {
             ItemStack item = guiUtil.createBaseRecipeItem(entry.getValue());
-            guiUtil.updateLoreForPlayer(item, entry.getValue(), player);
+            guiUtil.updateLoreForPlayer(item, entry.getValue(), player, snapshot);
             playerGui.setItem(entry.getKey(), item);
         }
 
@@ -114,7 +115,7 @@ public class GuiManager implements Listener {
 
         int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
         boolean isCompactView = isCompactLayout(player);
-        List<Map<Integer, RecipeData>> visiblePages = getVisiblePages(player, isCompactView);
+        List<Map<Integer, RecipeData>> visiblePages = getVisiblePages(player, isCompactView, null);
         int resolvedPage = resolvePage(currentPage, visiblePages.size());
         RecipeData clickedRecipe = visiblePages.get(resolvedPage - 1).get(slot);
 
@@ -130,10 +131,10 @@ public class GuiManager implements Listener {
             return;
         }
 
-        attemptCraft(player, clickedRecipe, event.getClick(), event);
+        attemptCraft(player, clickedRecipe, event.getClick());
     }
 
-    private void attemptCraft(Player player, RecipeData recipe, ClickType click, InventoryClickEvent event) {
+    private void attemptCraft(Player player, RecipeData recipe, ClickType click) {
         long maxCraftable = inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredBranches(), recipe.getResultItems());
         if (maxCraftable <= 0) {
             plugin.sendMessage(player, "&cクラフトに必要なアイテムが不足しているか、インベントリに空きがありません。");
@@ -170,20 +171,30 @@ public class GuiManager implements Listener {
 
         int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
         Bukkit.getScheduler().runTask(plugin, () -> openCraftGUI(player, currentPage));
-
-        Inventory inv = platformAdapter.getTopInventory(player.getOpenInventory());
-        if (inv != null) {
-            ItemStack updated = guiUtil.createBaseRecipeItem(recipe);
-            guiUtil.updateLoreForPlayer(updated, recipe, player);
-            inv.setItem(event.getRawSlot(), updated);
-        }
     }
 
     private void handleNavigationAndSettings(Player player, InventoryClickEvent event) {
         int slot = event.getRawSlot();
         int currentPage = mapUtil.getPlayerPage(player.getUniqueId());
-        boolean isCompactView = isCompactLayout(player);
-        int maxPage = getVisiblePages(player, isCompactView).size();
+
+        if (slot == 49) {
+            player.closeInventory();
+            return;
+        }
+
+        if (slot == 47) {
+            mapUtil.toggleSoundState(player.getUniqueId());
+            if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
+            }
+            boolean isCompactView = isCompactLayout(player);
+            int maxPage = getVisiblePages(player, isCompactView, null).size();
+            setNavigationButtons(event.getInventory(), currentPage, player, maxPage);
+            return;
+        }
+
+        boolean needsMaxPage = slot == 53;
+        int maxPage = needsMaxPage ? getVisiblePages(player, isCompactLayout(player), null).size() : 0;
 
         if ((slot == 45 && currentPage > 1) || (slot == 53 && currentPage < maxPage) || slot == 46 || slot == 48 || slot == 50 || slot == 51 || slot == 52) {
             int newPage = currentPage;
@@ -216,20 +227,6 @@ public class GuiManager implements Listener {
                 }
                 openCraftGUI(player, finalPageToOpen);
             });
-            return;
-        }
-
-        if (slot == 47) {
-            mapUtil.toggleSoundState(player.getUniqueId());
-            if (mapUtil.isSoundToggleOn(player.getUniqueId())) {
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
-            }
-            setNavigationButtons(event.getInventory(), currentPage, player, maxPage);
-            return;
-        }
-
-        if (slot == 49) {
-            player.closeInventory();
         }
     }
 
@@ -291,21 +288,28 @@ public class GuiManager implements Listener {
         });
     }
 
-    private List<Map<Integer, RecipeData>> getVisiblePages(Player player, boolean isCompactView) {
+    private List<Map<Integer, RecipeData>> getVisiblePages(Player player, boolean isCompactView, InventoryUtil.InventorySnapshot snapshot) {
         boolean craftableOnly = mapUtil.isCraftableOnlyEnabled(player.getUniqueId());
-        List<RecipeData> visibleRecipes = new ArrayList<>();
+        InventoryUtil.InventorySnapshot effectiveSnapshot = snapshot;
+        if (craftableOnly && effectiveSnapshot == null) {
+            effectiveSnapshot = inventoryUtil.createSnapshot(player);
+        }
 
+        if (!isCompactView) {
+            return createDefaultPages(craftableOnly, effectiveSnapshot);
+        }
+
+        List<RecipeData> visibleRecipes = new ArrayList<>();
         for (RecipeData recipe : allEnabledRecipes) {
             if (!recipe.isEnabled()) {
                 continue;
             }
-            if (craftableOnly && !isCurrentlyCraftable(player, recipe)) {
+            if (craftableOnly && !isCurrentlyCraftable(recipe, effectiveSnapshot)) {
                 continue;
             }
             visibleRecipes.add(recipe);
         }
-
-        return isCompactView ? createCompactPages(visibleRecipes) : createDefaultPages(player, craftableOnly);
+        return createCompactPages(visibleRecipes);
     }
 
     private List<Map<Integer, RecipeData>> createCompactPages(List<RecipeData> visibleRecipes) {
@@ -326,7 +330,7 @@ public class GuiManager implements Listener {
         return pages;
     }
 
-    private List<Map<Integer, RecipeData>> createDefaultPages(Player player, boolean craftableOnly) {
+    private List<Map<Integer, RecipeData>> createDefaultPages(boolean craftableOnly, InventoryUtil.InventorySnapshot snapshot) {
         List<Map<Integer, RecipeData>> pages = new ArrayList<>();
 
         loadedItems.keySet().stream().sorted().forEach(page -> {
@@ -338,7 +342,7 @@ public class GuiManager implements Listener {
                 if (!recipe.isEnabled()) {
                     return;
                 }
-                if (craftableOnly && !isCurrentlyCraftable(player, recipe)) {
+                if (craftableOnly && !isCurrentlyCraftable(recipe, snapshot)) {
                     return;
                 }
                 visiblePageItems.put(entry.getKey(), recipe);
@@ -355,11 +359,11 @@ public class GuiManager implements Listener {
         return pages;
     }
 
-    private boolean isCurrentlyCraftable(Player player, RecipeData recipe) {
+    private boolean isCurrentlyCraftable(RecipeData recipe, InventoryUtil.InventorySnapshot snapshot) {
         if (!recipe.isCraftable()) {
             return false;
         }
-        return inventoryUtil.calculateMaxCraftableAmount(player, recipe.getRequiredBranches(), recipe.getResultItems()) > 0;
+        return inventoryUtil.calculateMaxCraftableAmount(snapshot, recipe.getRequiredBranches(), recipe.getResultItems()) > 0;
     }
 
     private int resolvePage(int requestedPage, int maxPage) {

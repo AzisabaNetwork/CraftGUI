@@ -1,10 +1,13 @@
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     id("com.gradleup.shadow") version "8.3.0" apply false
 }
 
 allprojects {
     group = "net.azisaba"
-    version = "1.2.0"
+    version = "1.2.1"
 }
 
 subprojects {
@@ -12,6 +15,7 @@ subprojects {
     apply(plugin = "maven-publish")
 
     repositories {
+        mavenLocal()
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/") {
             name = "papermc-repo"
@@ -20,6 +24,9 @@ subprojects {
             name = "sonatype"
         }
         maven("https://repo.azisaba.net/repository/maven-public/") {
+            name = "azisaba-public"
+        }
+        maven("https://maven.azisaba.net/releases") {
             name = "azisaba-repo"
         }
         maven("https://mvn.lumine.io/repository/maven-public/") {
@@ -41,6 +48,27 @@ subprojects {
         options.encoding = "UTF-8"
         if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible) {
             options.release.set(targetJavaVersion)
+        }
+    }
+
+    configure<PublishingExtension> {
+        repositories {
+            maven {
+                name = "repo"
+                credentials(PasswordCredentials::class)
+                url = uri(
+                    if (project.version.toString().endsWith("-SNAPSHOT"))
+                        "https://maven.azisaba.net/snapshots"
+                    else
+                        "https://maven.azisaba.net/releases"
+                )
+            }
+        }
+
+        publications {
+            create<MavenPublication>("mavenJava") {
+                from(components["java"])
+            }
         }
     }
 }

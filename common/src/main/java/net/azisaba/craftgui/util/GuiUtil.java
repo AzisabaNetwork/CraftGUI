@@ -40,6 +40,10 @@ public class GuiUtil {
     }
 
     public void updateLoreForPlayer(ItemStack itemStack, RecipeData recipeData, Player player) {
+        updateLoreForPlayer(itemStack, recipeData, player, inventoryUtil.createSnapshot(player));
+    }
+
+    public void updateLoreForPlayer(ItemStack itemStack, RecipeData recipeData, Player player, InventoryUtil.InventorySnapshot snapshot) {
         ItemMeta meta = itemStack.getItemMeta();
         if (meta == null) return;
 
@@ -58,8 +62,10 @@ public class GuiUtil {
         finalLore.addAll(loadedLores.getOrDefault(loreKey, Collections.emptyList()));
         finalLore.add("");
 
-        long limitByMaterial = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredBranches(), Collections.emptyList());
-        long limitFinal = inventoryUtil.calculateMaxCraftableAmount(player, recipeData.getRequiredBranches(), recipeData.getResultItems());
+        long limitByMaterial = inventoryUtil.calculateMaxCraftableByMaterial(snapshot, recipeData.getRequiredBranches());
+        long limitFinal = limitByMaterial <= 0
+                ? 0
+                : Math.min(limitByMaterial, inventoryUtil.calculateMaxCraftableByInventory(snapshot, recipeData.getResultItems()));
 
         if (limitFinal > 0) {
             finalLore.add(ChatColor.GREEN + "✓ 変換可能です");
@@ -79,13 +85,13 @@ public class GuiUtil {
         List<net.azisaba.craftgui.data.RecipeBranch> branches = recipeData.getRequiredBranches();
         if (branches.size() == 1) {
             for (CraftingMaterial required : branches.get(0).getMaterials()) {
-                addRequiredMaterialToLore(finalLore, required, player, loreOn);
+                addRequiredMaterialToLore(finalLore, required, player, loreOn, snapshot);
             }
         } else {
             for (int i = 0; i < branches.size(); i++) {
                 finalLore.add(ChatColor.YELLOW + "[パターン " + (i + 1) + "]");
                 for (CraftingMaterial required : branches.get(i).getMaterials()) {
-                    addRequiredMaterialToLore(finalLore, required, player, loreOn);
+                    addRequiredMaterialToLore(finalLore, required, player, loreOn, snapshot);
                 }
             }
         }
@@ -126,8 +132,8 @@ public class GuiUtil {
         }
     }
 
-    private void addRequiredMaterialToLore(List<String> finalLore, CraftingMaterial required, Player player, boolean loreOn) {
-        long ownedAmount = inventoryUtil.countItems(player, required);
+    private void addRequiredMaterialToLore(List<String> finalLore, CraftingMaterial required, Player player, boolean loreOn, InventoryUtil.InventorySnapshot snapshot) {
+        long ownedAmount = inventoryUtil.countItems(snapshot, required);
         String checkMark = ownedAmount >= required.getAmount() ? ChatColor.GREEN + "✓ " : ChatColor.RED + "✘ ";
         String displayName = mythicItemUtil.resolveDisplayName(required, player);
         String countMessage = createCountMessage(ownedAmount, required.getAmount());
