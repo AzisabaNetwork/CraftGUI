@@ -4,7 +4,6 @@ import net.azisaba.craftgui.CraftGUI
 import net.azisaba.craftgui.data.RecipeData
 import net.azisaba.craftgui.gui.CraftGuiHolder
 import net.azisaba.craftgui.logging.FileLogger
-import net.azisaba.craftgui.platform.PlatformAdapter
 import net.azisaba.craftgui.util.GuiUtil
 import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.ItemUtil
@@ -31,8 +30,6 @@ class GuiManager(
     private val inventoryUtil: InventoryUtil,
     private val fileLogger: FileLogger,
     private val loadedItems: MutableMap<Int, MutableMap<Int, RecipeData>>,
-    @Suppress("unused") private val mythicItemUtil: MythicItemUtil,
-    private val platformAdapter: PlatformAdapter,
 ) : Listener {
 
     private val allEnabledRecipes = ArrayList<RecipeData>()
@@ -72,7 +69,7 @@ class GuiManager(
     @EventHandler
     fun onGuiClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
-        val topInventory = platformAdapter.getTopInventory(event.view) ?: return
+        val topInventory = event.view.topInventory
         val holder = topInventory.holder as? CraftGuiHolder ?: return
         val currentPage = holder.page
 
@@ -240,7 +237,7 @@ class GuiManager(
         )
 
         val showResult = mapUtil.isShowResultItems(uuid)
-        val onBottleMat = ItemUtil.getMaterialSafe("HONEY_BOTTLE", Material.GLASS_BOTTLE)
+        val onBottleMat = Material.HONEY_BOTTLE
         gui.setItem(
             51,
             createNavItem(

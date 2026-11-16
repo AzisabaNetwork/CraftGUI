@@ -2,7 +2,6 @@ package net.azisaba.craftgui.util
 
 import net.azisaba.craftgui.data.CraftingMaterial
 import net.azisaba.craftgui.data.RecipeBranch
-import net.azisaba.craftgui.platform.PlatformAdapter
 import net.azisaba.itemstash.ItemStash
 import org.bukkit.ChatColor
 import org.bukkit.entity.Player
@@ -13,7 +12,6 @@ import java.util.IdentityHashMap
 class InventoryUtil(
     private val mythicItemUtil: MythicItemUtil,
     private val mapUtil: MapUtil,
-    private val platformAdapter: PlatformAdapter,
 ) {
 
     fun createSnapshot(player: Player): InventorySnapshot =
@@ -270,9 +268,9 @@ class InventoryUtil(
     fun getItemStackFromMaterial(material: CraftingMaterial?): ItemStack? = when {
         material == null -> null
         material.isMythicItem -> mythicItemUtil.getItemStackFromMMID(material.mmid)
-        material.hasItemStackData() -> platformAdapter.deserializeItemStack(material.itemStackData)
+        material.hasItemStackData() -> ItemUtil.deserialize(material.itemStackData)
         else -> material.material?.let { ItemStack(it) }
     }
 
-    fun isSimilar(baseItem: ItemStack?, internalItem: ItemStack?): Boolean = platformAdapter.isSimilar(baseItem, internalItem)
+    fun isSimilar(baseItem: ItemStack?, internalItem: ItemStack?): Boolean = ItemUtil.isSimilar(baseItem, internalItem)
 }

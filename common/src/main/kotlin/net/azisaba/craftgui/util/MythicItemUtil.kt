@@ -2,7 +2,6 @@ package net.azisaba.craftgui.util
 
 import net.azisaba.craftgui.data.CraftingMaterial
 import net.azisaba.craftgui.mythic.MythicAdapter
-import net.azisaba.craftgui.platform.PlatformAdapter
 import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -15,7 +14,6 @@ class MythicItemUtil(
     private val plugin: Plugin,
     private val itemNameUtil: ItemNameUtil,
     private val mythicAdapter: MythicAdapter?,
-    private val platformAdapter: PlatformAdapter,
 ) {
 
     @Volatile private var itemStackCache: Map<String, ItemStack> = emptyMap()
@@ -133,7 +131,7 @@ class MythicItemUtil(
         val meta = if (item.hasItemMeta()) item.itemMeta else null
         val displayName = if (meta != null && meta.hasDisplayName()) meta.displayName else ""
         val lore = if (meta != null && meta.hasLore()) meta.lore.orEmpty().toList() else emptyList()
-        val customModelData = meta?.let { platformAdapter.getCustomModelData(it) }
+        val customModelData = meta?.let { ItemUtil.getCustomModelData(it) }
         return ItemSignature(item.type, displayName, lore, customModelData)
     }
 

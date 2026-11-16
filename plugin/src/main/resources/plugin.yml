@@ -1,7 +1,7 @@
 name: CraftGUI
 version: '${version}'
 main: net.azisaba.craftgui.CraftGUI
-api-version: '1.13'
+api-version: '1.21'
 author: albardoo02
 softdepend:
   - MythicMobs

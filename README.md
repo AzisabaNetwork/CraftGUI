@@ -6,7 +6,8 @@ This plugin allows server administrators to define craftable items and required 
 It also supports MythicMobs items, StorageBox, and ItemStash plugins for an enhanced user experience.
 
 # Environment
-This plugin depends on MythicMobs (v4.12.0), ItemStash, and StorageBox, so it is compatible with servers that run these plugin versions.
+This plugin requires Paper 1.21 or later (Java 21+). Minecraft 1.13 - 1.20 are no longer supported.
+Optional integrations: MythicMobs (v5), ItemStash, and StorageBox.
 
 ## Features
 - Highly customizable crafting recipes via configuration.

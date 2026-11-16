@@ -3,7 +3,6 @@ package net.azisaba.craftgui.manager
 import net.azisaba.craftgui.CraftGUI
 import net.azisaba.craftgui.data.RecipeInfo
 import net.azisaba.craftgui.gui.EditGuiHolder
-import net.azisaba.craftgui.platform.PlatformAdapter
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Material
@@ -20,7 +19,6 @@ class EditGuiManager(
     private val plugin: CraftGUI,
     private val recipeConfigManager: RecipeConfigManager,
     private val registerGuiManager: RegisterGuiManager,
-    private val platformAdapter: PlatformAdapter,
 ) : Listener {
 
     private val openEditGuis = HashMap<UUID, Int>()
@@ -95,7 +93,7 @@ class EditGuiManager(
 
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
-        val topInventory = platformAdapter.getTopInventory(event.view) ?: return
+        val topInventory = event.view.topInventory
         if (topInventory.holder !is EditGuiHolder) return
 
         event.isCancelled = true
@@ -132,7 +130,7 @@ class EditGuiManager(
 
     @EventHandler
     fun onInventoryClose(event: InventoryCloseEvent) {
-        val topInventory = platformAdapter.getTopInventory(event.view) ?: return
+        val topInventory = event.view.topInventory
         if (topInventory.holder !is EditGuiHolder) return
 
         val uuid = event.player.uniqueId

@@ -1,11 +1,10 @@
-package net.azisaba.craftgui.mythic.v5
+package net.azisaba.craftgui.mythic
 
 import io.lumine.mythic.bukkit.BukkitAdapter
 import io.lumine.mythic.bukkit.MythicBukkit
 import io.lumine.mythic.bukkit.events.MythicReloadedEvent
 import io.lumine.mythic.core.items.ItemExecutor
 import io.lumine.mythic.core.items.MythicItem
-import net.azisaba.craftgui.mythic.MythicAdapter
 import net.azisaba.craftgui.util.ItemUtil
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
@@ -14,7 +13,7 @@ import org.bukkit.event.Listener
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.Plugin
 
-class MythicMobsV5Adapter : MythicAdapter {
+class MythicMobsAdapter : MythicAdapter {
 
     private val itemManager: ItemExecutor?
         get() = MythicBukkit.inst()?.itemManager

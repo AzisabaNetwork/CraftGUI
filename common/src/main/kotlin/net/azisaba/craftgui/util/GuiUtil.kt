@@ -2,7 +2,6 @@ package net.azisaba.craftgui.util
 
 import net.azisaba.craftgui.data.CraftingMaterial
 import net.azisaba.craftgui.data.RecipeData
-import net.azisaba.craftgui.platform.PlatformAdapter
 import org.bukkit.ChatColor
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -12,13 +11,12 @@ class GuiUtil(
     private val mythicItemUtil: MythicItemUtil,
     private val loadedLores: Map<String, List<String>>,
     private val mapUtil: MapUtil,
-    private val platformAdapter: PlatformAdapter,
 ) {
 
     fun createBaseRecipeItem(recipeData: RecipeData): ItemStack {
         val item = recipeData.guiIcon.clone()
         item.itemMeta?.let { meta ->
-            platformAdapter.applyCleanFlags(meta)
+            ItemUtil.applyCleanFlags(meta)
             item.itemMeta = meta
         }
         return item

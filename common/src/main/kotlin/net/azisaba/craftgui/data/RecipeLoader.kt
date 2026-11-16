@@ -1,7 +1,6 @@
 package net.azisaba.craftgui.data
 
 import net.azisaba.craftgui.CraftGUI
-import net.azisaba.craftgui.platform.PlatformAdapter
 import net.azisaba.craftgui.util.ItemUtil
 import net.azisaba.craftgui.util.MythicItemUtil
 import org.bukkit.ChatColor
@@ -13,7 +12,6 @@ import org.bukkit.inventory.ItemStack
 class RecipeLoader(
     private val plugin: CraftGUI,
     private val mythicItemUtil: MythicItemUtil,
-    private val platformAdapter: PlatformAdapter,
 ) {
 
     private val _errorDetails = ArrayList<String>()
@@ -210,7 +208,7 @@ class RecipeLoader(
                 }
             }
             !itemStackData.isNullOrEmpty() -> {
-                val itemStack = platformAdapter.deserializeItemStack(itemStackData)
+                val itemStack = ItemUtil.deserialize(itemStackData)
                 if (itemStack == null || ItemUtil.isAir(itemStack)) {
                     throw IllegalArgumentException("'itemStack' からアイテムを復元できませんでした")
                 }

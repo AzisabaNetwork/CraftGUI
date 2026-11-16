@@ -21,28 +21,24 @@ subprojects {
         mavenLocal()
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/")
-        maven("https://oss.sonatype.org/content/groups/public/")
         maven("https://repo.azisaba.net/repository/maven-public/")
         maven("https://maven.azisaba.net/releases")
         maven("https://mvn.lumine.io/repository/maven-public/")
     }
 
-    val targetJavaVersion = 8
+    val targetJavaVersion = property("javaVersion").toString().toInt()
     configure<JavaPluginExtension> {
-        val javaVersion = JavaVersion.toVersion(targetJavaVersion)
-        sourceCompatibility = javaVersion
-        targetCompatibility = javaVersion
+        toolchain.languageVersion.set(JavaLanguageVersion.of(targetJavaVersion))
     }
 
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-        options.release.set(targetJavaVersion)
     }
 
     configure<KotlinJvmProjectExtension> {
+        jvmToolchain(targetJavaVersion)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_1_8)
-            freeCompilerArgs.add("-Xjdk-release=1.8")
+            jvmTarget.set(JvmTarget.fromTarget(targetJavaVersion.toString()))
         }
     }
 

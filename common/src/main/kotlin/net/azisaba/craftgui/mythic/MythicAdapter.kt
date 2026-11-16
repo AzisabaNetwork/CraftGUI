@@ -39,21 +39,13 @@ object MythicAdapterProvider {
             return DummyMythicAdapter()
         }
 
-        // MythicMobs v5
-        instantiate("io.lumine.mythic.bukkit.MythicBukkit", "net.azisaba.craftgui.mythic.v5.MythicMobsV5Adapter")
-            ?.let { return it }
-
-        // MythicMobs v4
-        instantiate("io.lumine.xikage.mythicmobs.MythicMobs", "net.azisaba.craftgui.mythic.v4.MythicMobsV4Adapter")
-            ?.let { return it }
-
-        return DummyMythicAdapter()
-    }
-
-    private fun instantiate(markerClass: String, adapterClass: String): MythicAdapter? = try {
-        Class.forName(markerClass)
-        Class.forName(adapterClass).getDeclaredConstructor().newInstance() as MythicAdapter
-    } catch (_: Throwable) {
-        null
+        // MythicMobs 5 系のみ対応 (MythicMobs クラスが無い環境でもロードできるようリフレクションで生成する)
+        return try {
+            Class.forName("io.lumine.mythic.bukkit.MythicBukkit")
+            Class.forName("net.azisaba.craftgui.mythic.MythicMobsAdapter")
+                .getDeclaredConstructor().newInstance() as MythicAdapter
+        } catch (_: Throwable) {
+            DummyMythicAdapter()
+        }
     }
 }

@@ -16,8 +16,6 @@ import net.azisaba.craftgui.manager.RecipeConfigManager
 import net.azisaba.craftgui.manager.RegisterGuiManager
 import net.azisaba.craftgui.mythic.MythicAdapter
 import net.azisaba.craftgui.mythic.MythicAdapterProvider
-import net.azisaba.craftgui.platform.PlatformAdapter
-import net.azisaba.craftgui.platform.PlatformAdapterProvider
 import net.azisaba.craftgui.util.AssetDownloadUtil
 import net.azisaba.craftgui.util.ConfigUtil
 import net.azisaba.craftgui.util.GuiUtil
@@ -40,8 +38,6 @@ import java.util.logging.Level
 class CraftGUI : JavaPlugin() {
 
     lateinit var prefix: String
-        private set
-    lateinit var platformAdapter: PlatformAdapter
         private set
     lateinit var mythicAdapter: MythicAdapter
         private set
@@ -91,9 +87,6 @@ class CraftGUI : JavaPlugin() {
         saveDefaultConfig()
         reloadConfig()
 
-        platformAdapter = PlatformAdapterProvider.createAdapter()
-        logger.info("Platform adapter loaded: ${platformAdapter.javaClass.simpleName}")
-
         mythicAdapter = MythicAdapterProvider.createAdapter()
         logger.info("MythicMobs adapter loaded: ${mythicAdapter.javaClass.simpleName}")
 
@@ -112,16 +105,16 @@ class CraftGUI : JavaPlugin() {
         assetDownloadUtil = AssetDownloadUtil(this)
         assetDownloadUtil.downloadAndLoadLanguages(config.getStringList("languages"))
         itemNameUtil = ItemNameUtil(assetDownloadUtil)
-        mythicItemUtil = MythicItemUtil(this, itemNameUtil, mythicAdapter, platformAdapter)
+        mythicItemUtil = MythicItemUtil(this, itemNameUtil, mythicAdapter)
         mythicItemUtil.rebuildCache()
-        inventoryUtil = InventoryUtil(mythicItemUtil, mapUtil, platformAdapter)
+        inventoryUtil = InventoryUtil(mythicItemUtil, mapUtil)
         fileLogger = FileLogger(this, mythicItemUtil, inventoryUtil)
 
         val loadedItems = loadRecipes(recipesConfig)
-        val guiUtil = GuiUtil(inventoryUtil, mythicItemUtil, recipeLoader.loadLores(recipesConfig), mapUtil, platformAdapter)
-        guiManager = GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems, mythicItemUtil, platformAdapter)
-        registerGuiManager = RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil, platformAdapter)
-        editGuiManager = EditGuiManager(this, recipeConfigManager, registerGuiManager, platformAdapter)
+        val guiUtil = GuiUtil(inventoryUtil, mythicItemUtil, recipeLoader.loadLores(recipesConfig), mapUtil)
+        guiManager = GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems)
+        registerGuiManager = RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil)
+        editGuiManager = EditGuiManager(this, recipeConfigManager, registerGuiManager)
         api = CraftGUIAPIImpl(mapUtil)
 
         setupCommands()
@@ -141,7 +134,7 @@ class CraftGUI : JavaPlugin() {
 
     /** レシピを読み込み，ID 索引を作り直す */
     private fun loadRecipes(recipesConfig: FileConfiguration): MutableMap<Int, MutableMap<Int, RecipeData>> {
-        recipeLoader = RecipeLoader(this, mythicItemUtil, platformAdapter)
+        recipeLoader = RecipeLoader(this, mythicItemUtil)
         val loadedItems = recipeLoader.loadAllItems(recipesConfig)
         recipesById.clear()
         loadedItems.values.forEach { page ->
@@ -184,7 +177,7 @@ class CraftGUI : JavaPlugin() {
 
         val playersToRestore = HashMap<UUID, Int>()
         for (player in Bukkit.getOnlinePlayers()) {
-            val topInventory = platformAdapter.getTopInventory(player.openInventory) ?: continue
+            val topInventory = player.openInventory.topInventory
             if (topInventory.holder is CraftGuiHolder) {
                 playersToRestore[player.uniqueId] = mapUtil.getPlayerPage(player.uniqueId)
                 player.closeInventory()
@@ -223,18 +216,18 @@ class CraftGUI : JavaPlugin() {
         configUtil.checkAndUpdate()
 
         val loadedItems = loadRecipes(recipesConfig)
-        val guiUtil = GuiUtil(inventoryUtil, mythicItemUtil, recipeLoader.loadLores(recipesConfig), mapUtil, platformAdapter)
+        val guiUtil = GuiUtil(inventoryUtil, mythicItemUtil, recipeLoader.loadLores(recipesConfig), mapUtil)
 
         mythicItemUtil.rebuildCache()
 
         HandlerList.unregisterAll(guiManager)
-        guiManager = GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems, mythicItemUtil, platformAdapter)
+        guiManager = GuiManager(this, mapUtil, guiUtil, inventoryUtil, fileLogger, loadedItems)
 
         HandlerList.unregisterAll(registerGuiManager)
-        registerGuiManager = RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil, platformAdapter)
+        registerGuiManager = RegisterGuiManager(this, mythicItemUtil, recipeConfigManager, inventoryUtil)
 
         HandlerList.unregisterAll(editGuiManager)
-        editGuiManager = EditGuiManager(this, recipeConfigManager, registerGuiManager, platformAdapter)
+        editGuiManager = EditGuiManager(this, recipeConfigManager, registerGuiManager)
 
         registerListeners(guiManager, registerGuiManager, editGuiManager)
 

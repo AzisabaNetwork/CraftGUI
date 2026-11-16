@@ -6,7 +6,6 @@ import net.azisaba.craftgui.data.RecipeBranch
 import net.azisaba.craftgui.data.RecipeData
 import net.azisaba.craftgui.data.RegisterData
 import net.azisaba.craftgui.gui.RegisterGuiHolder
-import net.azisaba.craftgui.platform.PlatformAdapter
 import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.ItemUtil
 import net.azisaba.craftgui.util.MythicItemUtil
@@ -30,7 +29,6 @@ class RegisterGuiManager(
     private val mythicItemUtil: MythicItemUtil,
     private val recipeConfigManager: RecipeConfigManager,
     private val inventoryUtil: InventoryUtil,
-    private val platformAdapter: PlatformAdapter,
 ) : Listener {
 
     private val openRegisterGuis = HashMap<UUID, RegisterData>()
@@ -115,7 +113,7 @@ class RegisterGuiManager(
         val uuid = player.uniqueId
         val data = openRegisterGuis[uuid] ?: return
 
-        val topInventory = platformAdapter.getTopInventory(event.view) ?: return
+        val topInventory = event.view.topInventory
         val holder = topInventory.holder as? RegisterGuiHolder ?: return
         if (holder.page != data.page || holder.slot != data.slot || holder.recipeId != data.recipeId) {
             return
@@ -206,7 +204,7 @@ class RegisterGuiManager(
             existing.amount += item.amount
             return
         }
-        serializedEntries.add(SerializedItemEntry(normalizedItem, platformAdapter.serializeItemStack(normalizedItem), item.amount))
+        serializedEntries.add(SerializedItemEntry(normalizedItem, ItemUtil.serialize(normalizedItem), item.amount))
     }
 
     private fun isSimpleVanillaItem(item: ItemStack): Boolean {
@@ -216,7 +214,7 @@ class RegisterGuiManager(
         if (item.type == Material.PLAYER_HEAD) return false
         return !meta.hasDisplayName() &&
             !meta.hasLore() &&
-            platformAdapter.getCustomModelData(meta) == null &&
+            ItemUtil.getCustomModelData(meta) == null &&
             !meta.hasEnchants() &&
             !meta.isUnbreakable &&
             meta.itemFlags.isEmpty()
@@ -250,7 +248,7 @@ class RegisterGuiManager(
     fun onInventoryClose(event: InventoryCloseEvent) {
         val player = event.player as? Player ?: return
         val uuid = player.uniqueId
-        val topInventory = platformAdapter.getTopInventory(event.view) ?: return
+        val topInventory = event.view.topInventory
         if (uuid !in openRegisterGuis || topInventory.holder !is RegisterGuiHolder) return
 
         val data = openRegisterGuis.remove(uuid)
