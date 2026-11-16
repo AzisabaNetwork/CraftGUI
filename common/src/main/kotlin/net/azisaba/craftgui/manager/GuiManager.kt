@@ -9,8 +9,8 @@ import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.ItemUtil
 import net.azisaba.craftgui.util.MapUtil
 import net.azisaba.craftgui.util.MythicItemUtil
+import net.azisaba.craftgui.util.Text
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.entity.Player
@@ -52,7 +52,7 @@ class GuiManager(
 
         val title = "CraftGUI - " + if (isCompactView) "All Items (Page $resolvedPage)" else "Page $resolvedPage"
         val holder = CraftGuiHolder(resolvedPage)
-        val playerGui = Bukkit.createInventory(holder, 54, title)
+        val playerGui = Bukkit.createInventory(holder, 54, Text.legacy(title))
         holder.setInventory(playerGui)
 
         for ((slot, recipe) in visiblePages[resolvedPage - 1]) {
@@ -116,7 +116,7 @@ class GuiManager(
         bestBranch?.materials?.forEach { inventoryUtil.removeItems(player, it, it.amount * craftAmount) }
         inventoryUtil.giveResultItems(player, recipe.resultItems, craftAmount)
         fileLogger.logCraft(player, recipe, bestBranch, craftAmount)
-        plugin.sendMessage(player, "${ChatColor.GREEN}${craftAmount}回変換しました。")
+        plugin.sendMessage(player, "&a${craftAmount}回変換しました。")
         playSoundIfEnabled(player, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f)
 
         val currentPage = mapUtil.getPlayerPage(player.uniqueId)
@@ -157,7 +157,7 @@ class GuiManager(
                 } else {
                     "通常どおりインベントリに送るように切り替えました。"
                 }
-                plugin.sendMessage(player, "${ChatColor.GREEN}$msg")
+                plugin.sendMessage(player, "&a$msg")
                 currentPage
             }
             50 -> {
@@ -186,10 +186,10 @@ class GuiManager(
         val uuid = player.uniqueId
 
         if (currentPage > 1) {
-            gui.setItem(45, createNavItem(Material.ARROW, "${ChatColor.YELLOW}前のページへ"))
+            gui.setItem(45, createNavItem(Material.ARROW, "&e前のページへ"))
         }
         if (currentPage < maxPage) {
-            gui.setItem(53, createNavItem(Material.ARROW, "${ChatColor.GREEN}次のページへ"))
+            gui.setItem(53, createNavItem(Material.ARROW, "&a次のページへ"))
         }
 
         val craftableOnly = mapUtil.isCraftableOnlyEnabled(uuid)
@@ -197,7 +197,7 @@ class GuiManager(
             46,
             createNavItem(
                 if (craftableOnly) Material.LIME_STAINED_GLASS_PANE else Material.RED_STAINED_GLASS_PANE,
-                "${ChatColor.GREEN}クラフト可能のみ表示",
+                "&aクラフト可能のみ表示",
                 listOf(settingLine(craftableOnly)),
             ),
         )
@@ -207,32 +207,32 @@ class GuiManager(
             47,
             createNavItem(
                 if (soundOn) Material.JUKEBOX else Material.NOTE_BLOCK,
-                "${ChatColor.GREEN}サウンド設定",
+                "&aサウンド設定",
                 listOf(settingLine(soundOn)),
             ),
         )
 
         val isStashEnabled = mapUtil.isStashEnabled(uuid)
-        val stashStatus = if (isStashEnabled) "${ChatColor.AQUA}Stashへ送る" else "${ChatColor.GOLD}インベントリへ送る"
+        val stashStatus = if (isStashEnabled) "&bStashへ送る" else "&6インベントリへ送る"
         gui.setItem(
             48,
             createNavItem(
                 if (isStashEnabled) Material.ENDER_CHEST else Material.CHEST,
-                "${ChatColor.GREEN}アイテム受け取り先",
-                listOf("${ChatColor.GRAY}現在の設定: $stashStatus", "${ChatColor.GRAY}クリックで切り替え"),
+                "&aアイテム受け取り先",
+                listOf("&7現在の設定: $stashStatus", "&7クリックで切り替え"),
             ),
         )
 
-        gui.setItem(49, createNavItem(Material.BARRIER, "${ChatColor.RED}閉じる"))
+        gui.setItem(49, createNavItem(Material.BARRIER, "&c閉じる"))
 
         val isCompactView = mapUtil.isCompactViewEnabled(uuid)
-        val modeName = if (isCompactView) "${ChatColor.AQUA}コンパクト" else "${ChatColor.GRAY}デフォルト"
+        val modeName = if (isCompactView) "&bコンパクト" else "&7デフォルト"
         gui.setItem(
             50,
             createNavItem(
                 if (isCompactView) Material.WATER_BUCKET else Material.BUCKET,
-                "${ChatColor.GREEN}表示モード",
-                listOf("${ChatColor.GRAY}現在のモード: $modeName"),
+                "&a表示モード",
+                listOf("&7現在のモード: $modeName"),
             ),
         )
 
@@ -242,7 +242,7 @@ class GuiManager(
             51,
             createNavItem(
                 if (showResult) onBottleMat else Material.GLASS_BOTTLE,
-                "${ChatColor.GREEN}結果アイテム表示",
+                "&a結果アイテム表示",
                 listOf(settingLine(showResult)),
             ),
         )
@@ -252,20 +252,20 @@ class GuiManager(
             52,
             createNavItem(
                 if (loreOn) Material.LIME_DYE else Material.GRAY_DYE,
-                "${ChatColor.GREEN}説明文表示",
+                "&a説明文表示",
                 listOf(settingLine(loreOn)),
             ),
         )
     }
 
     private fun settingLine(enabled: Boolean): String =
-        "${ChatColor.GRAY}現在の設定: " + if (enabled) "${ChatColor.AQUA}ON" else "${ChatColor.RED}OFF"
+        "&7現在の設定: " + if (enabled) "&bON" else "&cOFF"
 
     private fun createNavItem(material: Material, name: String, lore: List<String> = emptyList()): ItemStack {
         val item = ItemStack(material)
         item.itemMeta?.let { meta ->
-            meta.setDisplayName(name)
-            meta.lore = lore
+            meta.displayName(Text.item(name))
+            meta.lore(lore.map { Text.item(it) })
             item.itemMeta = meta
         }
         return item

@@ -5,7 +5,6 @@ import net.azisaba.craftgui.data.RecipeBranch
 import net.azisaba.craftgui.data.RecipeData
 import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.MythicItemUtil
-import org.bukkit.ChatColor
 import org.bukkit.entity.Player
 import java.io.BufferedWriter
 import java.io.File
@@ -48,14 +47,14 @@ class FileLogger(
     fun logCraft(player: Player, recipe: RecipeData, consumedBranch: RecipeBranch?, craftAmount: Int) {
         try {
             val requiredString = consumedBranch?.materials?.joinToString(", ") { m ->
-                val name = ChatColor.stripColor(mythicItemUtil.resolveDisplayName(m, player))
+                val name = mythicItemUtil.resolvePlainName(m, player)
                 val consumedAmount = m.amount * craftAmount
                 val remainingAmount = inventoryUtil.countItems(player, m)
                 "$name(x$consumedAmount)[残り: $remainingAmount]"
             } ?: "なし"
 
             val resultString = recipe.resultItems.joinToString(", ") { m ->
-                val name = ChatColor.stripColor(mythicItemUtil.resolveDisplayName(m, player))
+                val name = mythicItemUtil.resolvePlainName(m, player)
                 "$name(x${m.amount * craftAmount})"
             }
 

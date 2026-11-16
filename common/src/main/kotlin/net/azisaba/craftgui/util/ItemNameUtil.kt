@@ -6,7 +6,7 @@ import org.bukkit.entity.Player
 class ItemNameUtil(private val assetDownloadUtil: AssetDownloadUtil) {
 
     fun getName(material: Material, player: Player): String {
-        val langMap = assetDownloadUtil.getTranslations(player.locale.lowercase())
+        val langMap = assetDownloadUtil.getTranslations(player.locale().toString().lowercase())
             ?: assetDownloadUtil.getTranslations("en_us")
 
         val prefix = if (material.isBlock) "block.minecraft." else "item.minecraft."

@@ -9,8 +9,9 @@ import net.azisaba.craftgui.gui.RegisterGuiHolder
 import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.ItemUtil
 import net.azisaba.craftgui.util.MythicItemUtil
+import net.azisaba.craftgui.util.Text
+import net.azisaba.craftgui.util.sendLegacy
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -52,18 +53,18 @@ class RegisterGuiManager(
         editPage: Int,
     ) {
         val holder = RegisterGuiHolder(page, slot, recipeId)
-        val gui = Bukkit.createInventory(holder, 54, GUI_TITLE_PREFIX + recipeId)
+        val gui = Bukkit.createInventory(holder, 54, Text.legacy(GUI_TITLE_PREFIX + recipeId))
         holder.setInventory(gui)
 
         val saveButton = createGuiItem(
             Material.EMERALD_BLOCK,
-            "${ChatColor.GREEN}レシピを保存",
+            "&aレシピを保存",
             listOf(
-                "${ChatColor.GRAY}ページ: $page",
-                "${ChatColor.GRAY}スロット: $slot",
-                "${ChatColor.GRAY}ID: $recipeId",
+                "&7ページ: $page",
+                "&7スロット: $slot",
+                "&7ID: $recipeId",
                 "",
-                "${ChatColor.YELLOW}クリックしてレシピを保存",
+                "&eクリックしてレシピを保存",
             ),
         )
         gui.setItem(SAVE_BUTTON_SLOT, saveButton)
@@ -131,7 +132,7 @@ class RegisterGuiManager(
     private fun handleAsyncSave(player: Player, inv: Inventory, data: RegisterData) {
         val uuid = player.uniqueId
         processing.add(uuid)
-        player.sendMessage("${ChatColor.YELLOW}レシピを解析しています.. (非同期)")
+        player.sendLegacy("&eレシピを解析しています.. (非同期)")
 
         CompletableFuture.supplyAsync {
             val reqConfig = ArrayList<Map<String, Any>>()
@@ -159,7 +160,7 @@ class RegisterGuiManager(
             })
         }.exceptionally { ex ->
             Bukkit.getScheduler().runTask(plugin, Runnable {
-                player.sendMessage("${ChatColor.RED}保存中にエラーが発生しました。")
+                player.sendLegacy("&c保存中にエラーが発生しました。")
                 ex.printStackTrace()
                 processing.remove(uuid)
             })
@@ -260,8 +261,8 @@ class RegisterGuiManager(
     private fun createGuiItem(material: Material, name: String, lore: List<String>?): ItemStack {
         val item = ItemStack(material)
         item.itemMeta?.let { meta ->
-            meta.setDisplayName(name)
-            if (lore != null) meta.lore = lore
+            meta.displayName(Text.item(name))
+            if (lore != null) meta.lore(lore.map { Text.item(it) })
             item.itemMeta = meta
         }
         return item

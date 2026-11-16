@@ -3,7 +3,7 @@ package net.azisaba.craftgui.data
 import net.azisaba.craftgui.CraftGUI
 import net.azisaba.craftgui.util.ItemUtil
 import net.azisaba.craftgui.util.MythicItemUtil
-import org.bukkit.ChatColor
+import net.azisaba.craftgui.util.Text
 import org.bukkit.Material
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.FileConfiguration
@@ -86,11 +86,8 @@ class RecipeLoader(
             var hasError = guiIcon.type == Material.BARRIER
             val loreKey = itemSection.getString("lore", "commonLore") ?: "commonLore"
 
-            guiIcon.itemMeta?.let { meta ->
-                if (itemSection.contains("displayName")) {
-                    meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', itemSection.getString("displayName", "") ?: ""))
-                }
-                guiIcon.itemMeta = meta
+            if (itemSection.contains("displayName")) {
+                guiIcon.editMeta { it.displayName(Text.item(itemSection.getString("displayName", "") ?: "")) }
             }
 
             val errorCountBefore = _errorDetails.size
@@ -128,10 +125,7 @@ class RecipeLoader(
 
     private fun createErrorItem(message: String): ItemStack {
         val item = ItemStack(Material.BARRIER)
-        item.itemMeta?.let { meta ->
-            meta.setDisplayName("${ChatColor.RED}$message")
-            item.itemMeta = meta
-        }
+        item.editMeta { it.displayName(Text.item("&c$message")) }
         return item
     }
 
@@ -194,11 +188,8 @@ class RecipeLoader(
 
         when {
             !mmid.isNullOrBlank() -> {
+                // 表示名は描画時に MythicMobs 側の名前を優先して解決する (MythicItemUtil#resolveDisplayName)
                 isMythic = true
-                val fetchedDisplayName = mythicItemUtil.getDisplayNameFromMMID(mmid)
-                if (fetchedDisplayName != mmid) {
-                    displayName = fetchedDisplayName
-                }
             }
             !materialStr.isNullOrBlank() -> {
                 material = try {
@@ -213,9 +204,8 @@ class RecipeLoader(
                     throw IllegalArgumentException("'itemStack' からアイテムを復元できませんでした")
                 }
                 material = itemStack.type
-                val itemMeta = itemStack.itemMeta
-                if (displayName == null && itemMeta != null && itemMeta.hasDisplayName()) {
-                    displayName = itemMeta.displayName
+                if (displayName == null) {
+                    displayName = itemStack.itemMeta?.displayName()?.let { Text.toLegacy(it) }
                 }
             }
             else -> isMythic = true
@@ -245,7 +235,7 @@ class RecipeLoader(
             return lores
         }
         for (loreKey in loresSection.getKeys(false)) {
-            lores[loreKey] = loresSection.getStringList(loreKey).map { ChatColor.translateAlternateColorCodes('&', it) }
+            lores[loreKey] = loresSection.getStringList(loreKey)
         }
         return lores
     }

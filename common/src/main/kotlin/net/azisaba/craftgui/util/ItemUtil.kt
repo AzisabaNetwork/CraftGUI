@@ -9,10 +9,15 @@ object ItemUtil {
     @JvmStatic
     fun isAir(item: ItemStack?): Boolean = item == null || item.type.isAir
 
-    @Suppress("DEPRECATION")
+    /**
+     * CustomModelData コンポーネント (1.21.4+) の比較用の値。設定されていなければ null。
+     */
     @JvmStatic
-    fun getCustomModelData(meta: ItemMeta?): Int? =
-        if (meta != null && meta.hasCustomModelData()) meta.customModelData else null
+    fun getCustomModelData(meta: ItemMeta?): Any? {
+        if (meta == null || !meta.hasCustomModelDataComponent()) return null
+        val component = meta.customModelDataComponent
+        return listOf(component.floats, component.flags, component.strings, component.colors)
+    }
 
     /** アイテムの類似性比較。isSimilar で一致しない場合は amount を除いたシリアライズ結果やメタ情報で比較する。 */
     @JvmStatic

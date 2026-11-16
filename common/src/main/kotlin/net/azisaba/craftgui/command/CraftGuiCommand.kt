@@ -12,7 +12,8 @@ import net.azisaba.craftgui.util.ConfigUtil
 import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.MapUtil
 import net.azisaba.craftgui.util.MythicItemUtil
-import org.bukkit.ChatColor
+import net.azisaba.craftgui.util.Text
+import net.azisaba.craftgui.util.sendLegacy
 import org.bukkit.Sound
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -56,7 +57,7 @@ class CraftGuiCommand(
             else -> if (subCommand.matches(DIGITS)) {
                 handleOpenGui(sender, subCommand)
             } else {
-                plugin.sendMessage(sender, "${ChatColor.RED}不明なコマンドまたは引数です: $subCommand")
+                plugin.sendMessage(sender, "&c不明なコマンドまたは引数です: $subCommand")
             }
         }
         return true
@@ -130,24 +131,24 @@ class CraftGuiCommand(
             plugin.sendMessage(player, "&c変換に必要な素材が不足しています．")
             playSoundIfEnabled(player, Sound.ENTITY_VILLAGER_NO)
 
-            player.sendMessage("${ChatColor.GRAY}------------------------------------")
+            player.sendLegacy("&7------------------------------------")
             val branches = recipe.requiredBranches
             branches.forEachIndexed { i, branch ->
                 if (branches.size > 1) {
-                    player.sendMessage("${ChatColor.YELLOW}[パターン ${i + 1}]")
+                    player.sendLegacy("&e[パターン ${i + 1}]")
                 }
                 for (material in branch.materials) {
                     val owned = inventoryUtil.countItems(player, material)
                     val required = material.amount
-                    val name = mythicItemUtil.resolveDisplayName(material, player)
+                    val name = mythicItemUtil.resolveDisplayName(material)
                     if (owned < required) {
-                        player.sendMessage("${ChatColor.RED}✘ $name: ${required - owned}個不足 (所持: $owned)")
+                        player.sendMessage(Text.legacy("&c✘ ").append(name).append(Text.legacy(": ${required - owned}個不足 (所持: $owned)")))
                     } else {
-                        player.sendMessage("${ChatColor.GREEN}✓ $name: 変換可能です (所持: $owned)")
+                        player.sendMessage(Text.legacy("&a✓ ").append(name).append(Text.legacy(": 変換可能です (所持: $owned)")))
                     }
                 }
             }
-            player.sendMessage("${ChatColor.GRAY}-----------------------------------")
+            player.sendLegacy("&7-----------------------------------")
             return
         }
 
@@ -162,13 +163,13 @@ class CraftGuiCommand(
         plugin.sendMessage(player, "&a${finalCraftAmount}回変換しました")
         playSoundIfEnabled(player, Sound.ENTITY_PLAYER_LEVELUP)
 
-        player.sendMessage("${ChatColor.GRAY}------------------------------------")
+        player.sendLegacy("&7------------------------------------")
         bestBranch?.materials?.forEach { material ->
             val remaining = inventoryUtil.countItems(player, material)
-            val name = mythicItemUtil.resolveDisplayName(material, player)
-            player.sendMessage("${ChatColor.GRAY} - $name: 残り${remaining}個")
+            val name = mythicItemUtil.resolveDisplayName(material)
+            player.sendMessage(Text.legacy("&7 - ").append(name).append(Text.legacy(": 残り${remaining}個")))
         }
-        player.sendMessage("${ChatColor.GRAY}------------------------------------")
+        player.sendLegacy("&7------------------------------------")
     }
 
     private fun handleErrorsCommand(sender: CommandSender) {
@@ -178,9 +179,9 @@ class CraftGuiCommand(
         if (errorDetails.isEmpty()) {
             plugin.sendMessage(sender, "&a読み込みエラーはありませんでした．")
         } else {
-            sender.sendMessage("${ChatColor.RED}--- 設定ファイルの読み込みエラー詳細 ---")
-            errorDetails.forEach { sender.sendMessage("${ChatColor.YELLOW}- $it") }
-            sender.sendMessage("${ChatColor.RED}------------------------------------")
+            sender.sendLegacy("&c--- 設定ファイルの読み込みエラー詳細 ---")
+            errorDetails.forEach { sender.sendLegacy("&e- $it") }
+            sender.sendLegacy("&c------------------------------------")
         }
     }
 
@@ -297,7 +298,7 @@ class CraftGuiCommand(
             return
         }
 
-        plugin.sendMessage(player, "${ChatColor.GREEN}レシピ登録GUIを開きます (ID: $recipeId, 場所: page$page.$slot)")
+        plugin.sendMessage(player, "&aレシピ登録GUIを開きます (ID: $recipeId, 場所: page$page.$slot)")
         registerGuiManager.createAndOpenGui(player, page, slot, recipeId, null)
     }
 

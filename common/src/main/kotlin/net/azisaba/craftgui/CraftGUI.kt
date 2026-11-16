@@ -23,8 +23,9 @@ import net.azisaba.craftgui.util.InventoryUtil
 import net.azisaba.craftgui.util.ItemNameUtil
 import net.azisaba.craftgui.util.MapUtil
 import net.azisaba.craftgui.util.MythicItemUtil
+import net.azisaba.craftgui.util.Text
+import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.event.HandlerList
@@ -37,7 +38,7 @@ import java.util.logging.Level
 
 class CraftGUI : JavaPlugin() {
 
-    lateinit var prefix: String
+    lateinit var prefix: Component
         private set
     lateinit var mythicAdapter: MythicAdapter
         private set
@@ -91,7 +92,7 @@ class CraftGUI : JavaPlugin() {
         logger.info("MythicMobs adapter loaded: ${mythicAdapter.javaClass.simpleName}")
 
         recipeConfigManager = RecipeConfigManager(this)
-        prefix = ChatColor.translateAlternateColorCodes('&', config.getString("prefix", DEFAULT_PREFIX) ?: DEFAULT_PREFIX)
+        prefix = Text.legacy(config.getString("prefix", DEFAULT_PREFIX) ?: DEFAULT_PREFIX)
         playerDataManager = PlayerDataManager(this)
         configUtil = ConfigUtil(this, recipeConfigManager)
 
@@ -166,12 +167,11 @@ class CraftGUI : JavaPlugin() {
     }
 
     fun performSafeReload(reloader: CommandSender?) {
-        val prefix = prefix
-        val startMessage = "$prefix${ChatColor.YELLOW}レシピデータをリロードしています..."
+        val startMessage = prefixed("&eレシピデータをリロードしています...")
         if (reloader != null) {
             reloader.sendMessage(startMessage)
         } else {
-            Bukkit.broadcastMessage(startMessage)
+            Bukkit.broadcast(startMessage)
             logger.info("CraftGUIの自動リロードを開始します...")
         }
 
@@ -198,10 +198,10 @@ class CraftGUI : JavaPlugin() {
                     }
                 }
                 if (reloader != null) {
-                    reloader.sendMessage("$prefix${ChatColor.GREEN}レシピデータのリロードが完了しました (Player)")
-                    reloader.sendMessage("$prefix${ChatColor.GRAY}${playersToRestore.size}人のGUIを復元しました．")
+                    reloader.sendMessage(prefixed("&aレシピデータのリロードが完了しました (Player)"))
+                    reloader.sendMessage(prefixed("&7${playersToRestore.size}人のGUIを復元しました．"))
                 } else {
-                    Bukkit.broadcastMessage("$prefix${ChatColor.GREEN}レシピデータのリロードが完了しました (Server)")
+                    Bukkit.broadcast(prefixed("&aレシピデータのリロードが完了しました (Server)"))
                     logger.info("CraftGUIの自動リロードが完了しました．")
                 }
             }
@@ -257,10 +257,10 @@ class CraftGUI : JavaPlugin() {
         val successes = downloader.successfulLoads
         val failures = downloader.failedLoads
         if (successes.isNotEmpty()) {
-            logger.info("${ChatColor.GREEN}  ✓ 成功: ${ChatColor.RESET}${successes.joinToString(", ")}")
+            logger.info("  ✓ 成功: ${successes.joinToString(", ")}")
         }
         if (failures.isNotEmpty()) {
-            logger.info("${ChatColor.RED}  ✘ 失敗: ${ChatColor.RESET}${failures.joinToString(", ")}")
+            logger.info("  ✘ 失敗: ${failures.joinToString(", ")}")
         }
         if (successes.isEmpty() && failures.isEmpty()) {
             logger.info("  - ダウンロード対象の言語ファイルはありませんでした")
@@ -268,9 +268,9 @@ class CraftGUI : JavaPlugin() {
 
         logger.info("")
         logger.info("Recipe Loading Status:")
-        logger.info("${ChatColor.GREEN}  ✓ 成功: ${ChatColor.RESET}正常に読み込まれたレシピ数: $totalItems")
+        logger.info("  ✓ 成功: 正常に読み込まれたレシピ数: $totalItems")
         if (errorDetails.isNotEmpty()) {
-            logger.info("${ChatColor.RED}  ✘ 失敗: ${ChatColor.RESET}読み込みエラーがあったレシピ数: ${errorDetails.size}")
+            logger.info("  ✘ 失敗: 読み込みエラーがあったレシピ数: ${errorDetails.size}")
             logger.warning("  エラー詳細: ")
             errorDetails.forEach { logger.warning("    - $it") }
         } else {
@@ -281,8 +281,10 @@ class CraftGUI : JavaPlugin() {
 
     fun sendMessage(sender: CommandSender, message: String?) {
         if (message.isNullOrEmpty()) return
-        sender.sendMessage(prefix + ChatColor.translateAlternateColorCodes('&', message))
+        sender.sendMessage(prefixed(message))
     }
+
+    private fun prefixed(message: String): Component = prefix.append(Text.legacy(message))
 
     fun getRecipeById(id: String): RecipeData? = recipesById[id.lowercase()]
 

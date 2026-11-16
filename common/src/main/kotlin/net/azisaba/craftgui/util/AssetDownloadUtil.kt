@@ -5,7 +5,7 @@ import com.google.gson.reflect.TypeToken
 import org.bukkit.plugin.Plugin
 import java.io.File
 import java.io.FileReader
-import java.net.URL
+import java.net.URI
 import java.nio.file.Files
 import java.util.logging.Level
 
@@ -38,8 +38,7 @@ class AssetDownloadUtil(private val plugin: Plugin) {
             try {
                 val downloaded = !cacheFile.exists()
                 if (downloaded) {
-                    @Suppress("DEPRECATION")
-                    URL("$baseUrl$langCode.json").openStream().use { Files.copy(it, cacheFile.toPath()) }
+                    URI.create("$baseUrl$langCode.json").toURL().openStream().use { Files.copy(it, cacheFile.toPath()) }
                 }
                 val langMap: Map<String, String>? = FileReader(cacheFile).use { gson.fromJson(it, mapType) }
                 plugin.logger.info(if (downloaded) "$langCode.json をダウンロードしました．" else "$langCode.jsonを読み込みました．")

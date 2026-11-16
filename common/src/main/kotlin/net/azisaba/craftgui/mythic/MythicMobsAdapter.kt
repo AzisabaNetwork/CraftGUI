@@ -6,8 +6,9 @@ import io.lumine.mythic.bukkit.events.MythicReloadedEvent
 import io.lumine.mythic.core.items.ItemExecutor
 import io.lumine.mythic.core.items.MythicItem
 import net.azisaba.craftgui.util.ItemUtil
+import net.azisaba.craftgui.util.Text
+import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.inventory.ItemStack
@@ -38,21 +39,15 @@ class MythicMobsAdapter : MythicAdapter {
         null
     }
 
-    override fun getDisplayName(mmid: String?): String? {
-        try {
-            val displayName = findItem(mmid)?.displayName
-            if (!displayName.isNullOrEmpty()) {
-                return ChatColor.translateAlternateColorCodes('&', displayName)
-            }
-        } catch (_: Throwable) {
-        }
-        return mmid
+    override fun getDisplayName(mmid: String?): Component? = try {
+        findItem(mmid)?.displayName?.takeIf { it.isNotEmpty() }?.let { Text.legacy(it) }
+    } catch (_: Throwable) {
+        null
     }
 
-    override fun getLore(mmid: String?): List<String> {
+    override fun getLore(mmid: String?): List<Component> {
         val meta = getItemStack(mmid)?.takeIf { it.hasItemMeta() }?.itemMeta ?: return emptyList()
-        if (!meta.hasLore()) return emptyList()
-        return meta.lore.orEmpty().map { ChatColor.translateAlternateColorCodes('&', it) }
+        return meta.lore().orEmpty()
     }
 
     override fun getMMIDFromItem(item: ItemStack?): String? {

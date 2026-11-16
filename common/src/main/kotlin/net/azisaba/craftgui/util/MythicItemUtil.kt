@@ -2,7 +2,7 @@ package net.azisaba.craftgui.util
 
 import net.azisaba.craftgui.data.CraftingMaterial
 import net.azisaba.craftgui.mythic.MythicAdapter
-import org.bukkit.ChatColor
+import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -17,8 +17,8 @@ class MythicItemUtil(
 ) {
 
     @Volatile private var itemStackCache: Map<String, ItemStack> = emptyMap()
-    @Volatile private var displayNameCache: Map<String, String> = emptyMap()
-    @Volatile private var loreCache: Map<String, List<String>> = emptyMap()
+    @Volatile private var displayNameCache: Map<String, Component> = emptyMap()
+    @Volatile private var loreCache: Map<String, List<Component>> = emptyMap()
     @Volatile private var signatureToMmidCache: Map<ItemSignature, String> = emptyMap()
 
     private val availableAdapter: MythicAdapter?
@@ -34,8 +34,8 @@ class MythicItemUtil(
             }
 
             val newItemStackCache = HashMap<String, ItemStack>()
-            val newDisplayNameCache = HashMap<String, String>()
-            val newLoreCache = HashMap<String, List<String>>()
+            val newDisplayNameCache = HashMap<String, Component>()
+            val newLoreCache = HashMap<String, List<Component>>()
             val newSignatureToMmidCache = HashMap<ItemSignature, String>()
 
             for ((mmid, builtItem) in adapter.getAllItems()) {
@@ -43,12 +43,7 @@ class MythicItemUtil(
 
                 val normalizedItem = builtItem.clone().apply { amount = 1 }
                 newItemStackCache[mmid] = normalizedItem
-
-                val displayName = adapter.getDisplayName(mmid)
-                if (!displayName.isNullOrEmpty()) {
-                    newDisplayNameCache[mmid] = displayName
-                }
-
+                adapter.getDisplayName(mmid)?.let { newDisplayNameCache[mmid] = it }
                 newLoreCache[mmid] = adapter.getLore(mmid)
                 newSignatureToMmidCache.putIfAbsent(createSignature(normalizedItem), mmid)
             }
@@ -78,28 +73,35 @@ class MythicItemUtil(
         return availableAdapter?.getItemStack(mmid)
     }
 
-    fun getDisplayNameFromMMID(mmid: String?): String? {
-        val cached = displayNameCache[mmid]
-        if (!cached.isNullOrEmpty()) return cached
+    /** MythicMobs 側で表示名が設定されていれば返す */
+    fun findMythicDisplayName(mmid: String?): Component? =
+        displayNameCache[mmid] ?: availableAdapter?.getDisplayName(mmid)
 
-        availableAdapter?.let { return it.getDisplayName(mmid) }
-        return mmid ?: "不明なMMID"
-    }
-
-    fun getLoreFromMMID(mmid: String?): List<String> {
+    fun getLoreFromMMID(mmid: String?): List<Component> {
         loreCache[mmid]?.let { return it }
         return availableAdapter?.getLore(mmid) ?: emptyList()
     }
 
-    fun resolveDisplayName(material: CraftingMaterial, player: Player): String? {
-        val customName = material.displayName
-        if (!customName.isNullOrEmpty()) {
-            return ChatColor.translateAlternateColorCodes('&', customName)
-        }
+    /**
+     * GUI・チャット表示用の名前。
+     * MythicMobs アイテムは MythicMobs 側の表示名を優先し，
+     * バニラアイテムはクライアントの言語で表示される翻訳コンポーネントを使う。
+     */
+    fun resolveDisplayName(material: CraftingMaterial): Component {
+        val customName = material.displayName?.takeIf { it.isNotEmpty() }?.let { Text.legacy(it) }
         if (material.isMythicItem) {
-            return getDisplayNameFromMMID(material.mmid)
+            return findMythicDisplayName(material.mmid) ?: customName ?: Component.text(material.mmid ?: "不明なMMID")
         }
-        return material.material?.let { itemNameUtil.getName(it, player) }
+        return customName ?: material.material?.let { Component.translatable(it) } ?: Component.text("不明なアイテム")
+    }
+
+    /** ログ出力用のプレーンテキスト名。バニラアイテムはダウンロード済みの言語ファイルから解決する。 */
+    fun resolvePlainName(material: CraftingMaterial, player: Player): String {
+        val vanilla = material.material
+        if (!material.isMythicItem && material.displayName.isNullOrEmpty() && vanilla != null) {
+            return itemNameUtil.getName(vanilla, player)
+        }
+        return Text.plain(resolveDisplayName(material))
     }
 
     fun findMMIDAsync(item: ItemStack?): CompletableFuture<String?> {
@@ -125,14 +127,15 @@ class MythicItemUtil(
 
     private fun createSignature(item: ItemStack?): ItemSignature {
         if (item == null) {
-            return ItemSignature(Material.AIR, "", emptyList(), null)
+            return ItemSignature(Material.AIR, null, emptyList(), null)
         }
-
         val meta = if (item.hasItemMeta()) item.itemMeta else null
-        val displayName = if (meta != null && meta.hasDisplayName()) meta.displayName else ""
-        val lore = if (meta != null && meta.hasLore()) meta.lore.orEmpty().toList() else emptyList()
-        val customModelData = meta?.let { ItemUtil.getCustomModelData(it) }
-        return ItemSignature(item.type, displayName, lore, customModelData)
+        return ItemSignature(
+            item.type,
+            meta?.displayName(),
+            meta?.lore().orEmpty(),
+            ItemUtil.getCustomModelData(meta),
+        )
     }
 
     private fun isSimilar(stack1: ItemStack, stack2: ItemStack): Boolean =
@@ -140,8 +143,8 @@ class MythicItemUtil(
 
     private data class ItemSignature(
         val material: Material,
-        val displayName: String?,
-        val lore: List<String>,
-        val customModelData: Int?,
+        val displayName: Component?,
+        val lore: List<Component>,
+        val customModelData: Any?,
     )
 }

@@ -3,8 +3,9 @@ package net.azisaba.craftgui.manager
 import net.azisaba.craftgui.CraftGUI
 import net.azisaba.craftgui.data.RecipeInfo
 import net.azisaba.craftgui.gui.EditGuiHolder
+import net.azisaba.craftgui.util.Text
+import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -28,7 +29,7 @@ class EditGuiManager(
     fun openEditGui(player: Player, page: Int) {
         val allRecipes = loadAllRecipeInfo()
         if (allRecipes.isEmpty()) {
-            plugin.sendMessage(player, "${ChatColor.RED}編集可能なレシピがrecipes.ymlに見つかりません。")
+            plugin.sendMessage(player, "&c編集可能なレシピがrecipes.ymlに見つかりません。")
             return
         }
         playerEditList[player.uniqueId] = allRecipes
@@ -47,7 +48,7 @@ class EditGuiManager(
         }
 
         val holder = EditGuiHolder(page)
-        val gui = Bukkit.createInventory(holder, 54, "CraftGUI Edit - Page $page")
+        val gui = Bukkit.createInventory(holder, 54, Text.legacy("CraftGUI Edit - Page $page"))
         holder.setInventory(gui)
 
         for (i in 0 until ITEMS_PER_PAGE) {
@@ -56,12 +57,12 @@ class EditGuiManager(
         }
 
         if (page > 1) {
-            gui.setItem(45, createNavItem(Material.ARROW, "${ChatColor.YELLOW}前のページへ"))
+            gui.setItem(45, createNavItem(Material.ARROW, "&e前のページへ"))
         }
         if (page < maxPage) {
-            gui.setItem(53, createNavItem(Material.ARROW, "${ChatColor.GREEN}次のページへ"))
+            gui.setItem(53, createNavItem(Material.ARROW, "&a次のページへ"))
         }
-        gui.setItem(49, createNavItem(Material.BARRIER, "${ChatColor.RED}閉じる"))
+        gui.setItem(49, createNavItem(Material.BARRIER, "&c閉じる"))
 
         val uuid = player.uniqueId
         isNavigating.add(uuid)
@@ -73,21 +74,21 @@ class EditGuiManager(
 
     private fun createRecipeIcon(info: RecipeInfo): ItemStack {
         val guiIcon = plugin.getRecipeById(info.id)?.guiIcon
-        val item = guiIcon?.clone() ?: createNavItem(Material.BARRIER, "${ChatColor.RED}[ロードエラー or 無効]")
+        val item = guiIcon?.clone() ?: createNavItem(Material.BARRIER, "&c[ロードエラー or 無効]")
 
-        val meta = item.itemMeta ?: Bukkit.getItemFactory().getItemMeta(item.type) ?: return item
-        val currentName = if (meta.hasDisplayName()) meta.displayName else info.id
-        meta.setDisplayName("${ChatColor.YELLOW}[編集] ${ChatColor.RESET}$currentName")
+        item.editMeta { meta ->
+            val currentName = meta.displayName() ?: Component.text(info.id)
+            meta.displayName(Text.itemLine(Text.legacy("&e[編集] "), currentName))
 
-        val lore = if (meta.hasLore()) meta.lore.orEmpty().toMutableList() else ArrayList()
-        lore.add("")
-        lore.add("${ChatColor.GRAY}ID: ${info.id}")
-        lore.add("${ChatColor.GRAY}場所: page${info.page}.${info.slot}")
-        if (!info.isEnabled) lore.add("${ChatColor.RED}enabled: false")
-        if (!info.isCraftable) lore.add("${ChatColor.RED}craftable: false")
-        lore.add("${ChatColor.GREEN}クリックしてこのレシピを編集")
-        meta.lore = lore
-        item.itemMeta = meta
+            val lore = meta.lore().orEmpty().toMutableList()
+            lore.add(Component.empty())
+            lore.add(Text.item("&7ID: ${info.id}"))
+            lore.add(Text.item("&7場所: page${info.page}.${info.slot}"))
+            if (!info.isEnabled) lore.add(Text.item("&cenabled: false"))
+            if (!info.isCraftable) lore.add(Text.item("&ccraftable: false"))
+            lore.add(Text.item("&aクリックしてこのレシピを編集"))
+            meta.lore(lore)
+        }
         return item
     }
 
@@ -118,8 +119,8 @@ class EditGuiManager(
                 val info = allRecipes.getOrNull((currentPage - 1) * ITEMS_PER_PAGE + slot) ?: return
                 val recipeData = plugin.getRecipeById(info.id)
                 if (recipeData == null) {
-                    plugin.sendMessage(player, "${ChatColor.RED}エラー: このレシピは現在メモリにロードされていません。")
-                    plugin.sendMessage(player, "${ChatColor.GRAY}編集するには、一度正常な状態に戻してから再度試してください。")
+                    plugin.sendMessage(player, "&cエラー: このレシピは現在メモリにロードされていません。")
+                    plugin.sendMessage(player, "&7編集するには、一度正常な状態に戻してから再度試してください。")
                     return
                 }
                 player.closeInventory()
@@ -167,7 +168,7 @@ class EditGuiManager(
     private fun createNavItem(material: Material, name: String): ItemStack {
         val item = ItemStack(material)
         item.itemMeta?.let { meta ->
-            meta.setDisplayName(name)
+            meta.displayName(Text.item(name))
             item.itemMeta = meta
         }
         return item

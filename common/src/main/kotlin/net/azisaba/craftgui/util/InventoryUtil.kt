@@ -3,7 +3,6 @@ package net.azisaba.craftgui.util
 import net.azisaba.craftgui.data.CraftingMaterial
 import net.azisaba.craftgui.data.RecipeBranch
 import net.azisaba.itemstash.ItemStash
-import org.bukkit.ChatColor
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import xyz.acrylicstyle.storageBox.utils.StorageBoxItemInfo
@@ -259,7 +258,7 @@ class InventoryUtil(
                 val leftOver = player.inventory.addItem(giveItem)
                 if (leftOver.isNotEmpty()) {
                     leftOver.values.forEach { ItemStash.getInstance().addItemToStash(player.uniqueId, it) }
-                    player.sendMessage("${ChatColor.YELLOW}インベントリに入りきらなかったアイテムをStashに保管しました．")
+                    player.sendLegacy("&eインベントリに入りきらなかったアイテムをStashに保管しました．")
                 }
             }
         }
