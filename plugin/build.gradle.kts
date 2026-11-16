@@ -2,7 +2,8 @@ plugins {
     id("com.gradleup.shadow")
 }
 
-configurations.all {
+// adapter-modern (Java 21) を同梱するため，解決時は Java 21 向けバリアントとして扱う
+configurations.matching { it.name.endsWith("Classpath") }.configureEach {
     attributes {
         attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
     }
@@ -30,6 +31,14 @@ tasks.processResources {
 tasks.shadowJar {
     archiveBaseName.set("CraftGUI")
     archiveClassifier.set("")
+
+    // 他プラグインが同梱する Kotlin と衝突しないよう標準ライブラリを再配置する
+    relocate("kotlin", "net.azisaba.craftgui.libs.kotlin")
+    dependencies {
+        exclude(dependency("org.jetbrains:annotations"))
+    }
+    exclude("META-INF/*.kotlin_module")
+    exclude("META-INF/**/module-info.class")
 }
 
 tasks.build {

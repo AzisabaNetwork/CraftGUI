@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 val modernJavaVersion = 21
 
 java {
@@ -8,6 +10,13 @@ java {
 
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(modernJavaVersion)
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.fromTarget(modernJavaVersion.toString()))
+        freeCompilerArgs.set(listOf("-Xjdk-release=$modernJavaVersion"))
+    }
 }
 
 dependencies {
